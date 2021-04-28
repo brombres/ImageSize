@@ -45,6 +45,23 @@ class ImageSize
       forEach (arg in reader)
         if (arg == "resize")
           commands.add( CmdResize(read_w_h("resize",reader)) )
+        elseIf (arg == "crop")
+          commands.add( CmdCrop(read_w_h("crop",reader)) )
+        elseIf (arg == "aspect")
+          contingent
+            necessary (reader.has_another)
+            local is_fit = false
+            which (reader.read)
+              case "fit":  is_fit = true
+              case "fill": noAction
+              others:      necessary (false)
+            endWhich
+            commands.add( CmdAspect(read_aspect_w_h(reader),is_fit) )
+          unsatisfied
+            error( "Expected 'fill' or 'fit' after 'aspect'." )
+          endContingent
+        elseIf (arg == "anchor")
+          commands.add( CmdSetAnchor(read_anchor_args(reader)) )
         elseIf (arg == "replace")
           output_command = CmdSaveReplace()
         else
@@ -61,6 +78,8 @@ class ImageSize
       endIf
 
       forEach (filepath in input_filepaths)
+        Command.anchor_x = 0.5
+        Command.anchor_y = 0.5
         local bitmap = Bitmap( File(filepath) )
         if (bitmap.error) error( ''Error loading "$".''(filepath) )
         forEach (cmd in commands)
@@ -84,15 +103,54 @@ class ImageSize
           else
             if (parts[1].count) return XY(0,parts[1]->Int32)
           endIf
-        else
-          local w = param->Int32
-          if (reader.has_another)
-            return XY( w, reader.read->Int32 )
-          endIf
         endIf
       endIf
 
       error( ''Expected 'WxH', 'Wx', or 'xH' after '$'.''(cmd_name) )
+      return XY.zero
+
+    method read_aspect_w_h( reader:Reader<<String>> )->XY
+      if (reader.has_another)
+        local param = reader.read
+        if (param.contains('x'))
+          local parts = param.split( 'x' )
+          if (parts[0].count)
+            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
+          endIf
+        endIf
+      endIf
+
+      error( ''Expected 'WxH' after 'aspect fill/fit'.'' )
+      return XY.zero
+
+    method read_anchor_args( reader:Reader<<String>> )->XY
+      block
+        if (reader.has_another)
+          if (reader.peek.contains('x'))
+            local parts = reader.read.split( 'x' )
+            if (parts[0].count)
+              if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
+            endIf
+            escapeBlock
+          endIf
+
+          local x = 0.5
+          local y = 0.5
+          while (reader.has_another)
+            which (reader.peek.to_lowercase)
+              case "left":   reader.read; x = 0.0
+              case "right":  reader.read; x = 1.0
+              case "top":    reader.read; y = 0.0
+              case "bottom": reader.read; y = 1.0
+              case "center": reader.read; x = 0.5; y = 0.5
+              others:        escapeWhile
+            endWhich
+          endWhile
+          return XY(x,y)
+        endIf
+      endBlock
+
+      error( ''Expected 'WxH' or one or more of [left,top,right,bottom,center] after 'anchor'.'' )
       return XY.zero
 
     method show_usage
@@ -109,24 +167,24 @@ class ImageSize
                |    Resizes image to specified pixel width and height. Uses a filtering effect
                |    when downsizing or when upsizing and not a whole multiple of the original
                |    size. Can specify width-only (Wx) and auto-calculate height from the aspect
-               |    ratio |    or vice versa.
+               |    ratio or vice versa.
                |
-               |  reframe [WxH | Wx | xH]
-               |    Reframes / crops / resizes the canvas. The anchor point is CENTER by default
-               |    and can be changed with a preceding 'anchor' command.
+               |  crop [WxH | Wx | xH]
+               |    Crops or expands the canvas. The anchor point is CENTER by default and can
+               |    be changed with a preceding 'anchor' command. 'crop Wx' and 'crop xH'
+               |    change the width or height of one dimension but not the other.
                |
-               |  aspect [fit]  [WxH]
-               |    Reframes the image to fit a given aspect ratio. 'aspect 1024x768' has the
+               |  aspect [fill | fit]  [WxH]
+               |    Crops the image to fit a given aspect ratio. 'aspect 1024x768' has the
                |    same effect as 'aspect 4x3'. 'aspect' uses the anchor specified by the
-               |    preceding 'anchor' command or CENTER by default. 'aspect' performs an
-               |    aspect fill and `aspect fit` can be used to add letterboxing/pillarboxing
-               |    instead.
+               |    preceding 'anchor' command or CENTER by default.
                |
                |  anchor [WxH]
-               |  anchor [LEFT | RIGHT | TOP | BOTTOM | CENTER]
-               |    Specifies the anchor used by 'reframe' and 'aspect fill/fit'. Either
-               |    proportional values (0.0=left/top, 0.5=center, 1.0=right/bottom) or
-               |    positional names may be used (`anchor TOP LEFT`, `anchor LEFT`, etc.
+               |  anchor [left | right | top | bottom | center]
+               |    Specifies the anchor used by successive 'crop' and 'aspect fill/fit'.
+               |    commands. Either proportional values (0.0=left/top, 0.5=center,
+               |    1.0=right/bottom) or positional names may be used ('anchor top left',
+               |    'anchor left', etc.
                |
                |  flip | hflip | vflip
                |    Flips (mirrors) an image horizontally or vertically.
@@ -152,11 +210,18 @@ class ImageSize
                |  {w}, {h}    - The width or height of the output image.
                |
                |EXAMPLES
-               |  imagesize Screenshots/* aspect 4x3 resize 320x200 -o "Thumbnails/{name}.jpg"
+               |  imagesize Screenshots/* aspect fill 4x3 resize 320x200 -o "Thumbnails/{name}.jpg"
 endClass
 
 class Command [abstract]
+  GLOBAL PROPERTIES
+    anchor_x = 0.5
+    anchor_y = 0.5
+
   METHODS
+    method anchor->Anchor
+      return Anchor( XY(anchor_x,anchor_y) )
+
     method call( bitmap:Bitmap )->Bitmap [abstract]
       noAction
 endClass
@@ -178,10 +243,53 @@ class CmdResize( new_size:XY ) : Command
       elseIf (new_size.y == 0) new_size = XY( new_size.x, h*(new_size.x/w) )
       w = new_size.x
       h = new_size.y
-      println "  resize [$x$] -> [$x$]" (bitmap.width,bitmap.height,w,h)
+      println "  resize [$x$]" (w,h)
       bitmap.resize( w, h )
       return bitmap
 endClass
+
+class CmdCrop( new_size:XY ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      local w = bitmap.width
+      local h = bitmap.height
+      if (new_size.x) w = new_size.x
+      if (new_size.y) h = new_size.y
+      println "  crop [$x$]" (w,h)
+      bitmap.crop( w, h, anchor, Color.BLACK )
+      return bitmap
+endClass
+
+class CmdAspect( new_size:XY, is_fit:Logical ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      local w = bitmap.width
+      local h = bitmap.height
+      local adjusted_height = (w / new_size.x) * new_size.y : Int32
+      local adjusted_width  = (h / new_size.y) * new_size.x : Int32
+
+      println "  aspect $ [$x$]" (which{is_fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
+      if (is_fit)
+        if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
+        else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+      else
+        if (adjusted_width < h) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+        else                    bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
+      endIf
+
+      return bitmap
+endClass
+
+
+class CmdSetAnchor( xy:XY ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      println "  anchor ($,$)" (xy.x.format(".3"),xy.y.format(".3"))
+      Command.anchor_x = xy.x
+      Command.anchor_y = xy.y
+      return bitmap
+endClass
+
 
 class CmdSave : Command
   GLOBAL PROPERTIES
@@ -228,4 +336,5 @@ class CmdSaveReplace : Command
       println "  -> $ [$x$]" (filepath,bitmap.width,bitmap.height)
       return bitmap
 endClass
+
 
