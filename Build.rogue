@@ -23,10 +23,8 @@ augment Build
     LAUNCHER_NAME     = "imagesize"
     LAUNCHER_FOLDER   = "/usr/local/bin"
     ROGUEC_FLAGS      = "--debug"
-    CPP_FLAGS_UNIX    = "-O0"
-                        # /O3 to optimize
-    CPP_FLAGS_WINDOWS = "/Od"
-                        # /Ob2ity /GF /Gy to optimize
+    CPP_FLAGS_UNIX    = "-O3"
+    CPP_FLAGS_WINDOWS = '/Ob2ity /GF /Gy /ILibraries/Windows/lpng /ILibraries/Windows/jpeg'
 endAugment
 
 routine exe_filepath->String
@@ -57,9 +55,24 @@ routine rogo_build
                 (File.esc(src_filepath),Build.ROGUEC_FLAGS,File.esc(cpp_filepath),System.os)
       endIf
       if (System.is_windows)
-        local libs = ""
+        if (not File.exists("Libraries/Windows/jpeg/libjpeg.lib"))
+          println @|================================================================================
+                   |Precompiled Windows media libraries must be downloaded from
+                   |
+                   |https://github.com/AbePralle/WindowsMediaLibraries/releases
+                   |
+                   |and placed in Libraries/Windows:
+                   |- Libraries/Windows/jpeg
+                   |- Libraries/Windows/lpng
+                   |================================================================================
+          System.exit 1
+        endIf
+        local libs = "Libraries/Windows/jpeg/libjpeg.lib"
+        libs += " Libraries/Windows/lpng/libpng16.lib"
+        libs += " Libraries/Windows/lpng/zlib.lib"
         local cc = "cl $ /EHsc /nologo $ /Fe$ $" (Build.CPP_FLAGS_WINDOWS,File.esc(cpp_filepath),File.esc(exe_filepath),libs)
-        #cc += " /link /LTCG"   # uncomment this if there are errors linking libraries
+        cc += " /link /LTCG"   # uncomment this if there are errors linking libraries
+        #cc += " /link /LTCG /NODEFAULTLIB:MSVCRT"   # uncomment this if there are errors linking libraries
         execute cc
       else
         local libs = which{ System.is_linux:" $LIBRARY_FLAGS(libpng-dev,libjpeg-dev)" || " $LIBRARY_FLAGS(libpng,libjpeg,zlib)" }
@@ -72,7 +85,7 @@ routine rogo_build
 endRoutine
 
 routine rogo_run
-  execute ''$ "$"'' (File.esc(exe_filepath),"Test Images/AmericaFuckYeah.jpg")
+  execute "$" (File.esc(exe_filepath))
 endRoutine
 
 routine rogo_install_launcher

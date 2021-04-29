@@ -1,9 +1,11 @@
 #================================================================================
 # ImageSize.rogue
-# April 27, 2021
+# April 29, 2021
 #================================================================================
 
 $requireRogue "1.8.1"
+
+$define VERSION_INFO "v1.0 by Abe Pralle"
 
 uses Utility/CommandLineParser
 uses Bitmap
@@ -30,7 +32,7 @@ class ImageSize
     method init( args:String[] )
       local command = CommandLineParser().
       [
-        option( "--output=",  &alias="-o" )
+        #option( "--output=",  &alias="-o" )
         on_unknown( this=>show_usage )
       ].parse( System.command_line_arguments )
 
@@ -47,21 +49,29 @@ class ImageSize
           commands.add( CmdResize(read_w_h("resize",reader)) )
         elseIf (arg == "crop")
           commands.add( CmdCrop(read_w_h("crop",reader)) )
-        elseIf (arg == "aspect")
-          contingent
-            necessary (reader.has_another)
-            local is_fit = false
-            which (reader.read)
-              case "fit":  is_fit = true
-              case "fill": noAction
-              others:      necessary (false)
-            endWhich
-            commands.add( CmdAspect(read_aspect_w_h(reader),is_fit) )
-          unsatisfied
-            error( "Expected 'fill' or 'fit' after 'aspect'." )
-          endContingent
+        elseIf (arg == "aspect-fill")
+          commands.add( CmdAspect(read_aspect_w_h(reader),&!is_fit) )
+        elseIf (arg == "aspect-fit")
+          commands.add( CmdAspect(read_aspect_w_h(reader),&is_fit) )
         elseIf (arg == "anchor")
           commands.add( CmdSetAnchor(read_anchor_args(reader)) )
+        elseIf (arg == "flip" or arg == "hflip")
+          commands.add CmdFlip( &h )
+        elseIf (arg == "vflip")
+          commands.add CmdFlip( &v )
+        elseIf (arg == "rotate")
+          if (reader.has_another)
+            local dir = reader.read
+            which (dir)
+              case "cw":  commands.add( CmdRotate90(&cw) ); nextIteration
+              case "ccw": commands.add( CmdRotate90(&ccw) ); nextIteration
+              case "180": commands.add( CmdRotate180() ); nextIteration
+            endWhich
+          endIf
+          error( "After 'rotate', expected one of: cw ccw 180." )
+        elseIf (arg == "output")
+          if (not reader.has_another) error( "Expected filepath or format after 'output'." )
+          output_command = CmdSave( reader.read )
         elseIf (arg == "replace")
           output_command = CmdSaveReplace()
         else
@@ -70,11 +80,7 @@ class ImageSize
       endForEach
 
       if (not output_command and commands.count > 1)
-        if (command//options//output)
-          output_command = CmdSave( command//options//output->String )
-        else
-          output_command = CmdSave( "{name}-{w}x{h}.{ext}" )
-        endIf
+        output_command = CmdSave( "{name}-{w}x{h}.{ext}" )
       endIf
 
       forEach (filepath in input_filepaths)
@@ -120,7 +126,7 @@ class ImageSize
         endIf
       endIf
 
-      error( ''Expected 'WxH' after 'aspect fill/fit'.'' )
+      error( ''Expected 'WxH' after 'aspect-fill/fit'.'' )
       return XY.zero
 
     method read_anchor_args( reader:Reader<<String>> )->XY
@@ -129,7 +135,7 @@ class ImageSize
           if (reader.peek.contains('x'))
             local parts = reader.read.split( 'x' )
             if (parts[0].count)
-              if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
+              if (parts[1].count) return XY(parts[0]->Real64,parts[1]->Real64)
             endIf
             escapeBlock
           endIf
@@ -154,63 +160,68 @@ class ImageSize
       return XY.zero
 
     method show_usage
-      println @|USAGE
-               |  imagesize <input-patterns> [options] [--output=<output-pattern> | replace]
+      println  "imagesize"
+      println  "$" (VERSION_INFO)
+      println  "github.com/AbePralle/ImageSize"
+
+      println @|
+               |USAGE
+               |  imagesize [input-patterns] [actions] [replace | output filepath]
                |
                |INPUT PATTERNS
-               |  path/to/file
-               |  *.jpg
-               |  "**/*.png"
+               |  path/to/file, *.png, "**/*.jpg"
                |
-               |OPTIONS
-               |  resize  [WxH | Wx | xH]
-               |    Resizes image to specified pixel width and height. Uses a filtering effect
-               |    when downsizing or when upsizing and not a whole multiple of the original
-               |    size. Can specify width-only (Wx) and auto-calculate height from the aspect
-               |    ratio or vice versa.
+               |ACTIONS
+               |  anchor [HxV]
+               |  anchor [left | right | top | bottom | center]
+               |    Changes anchor for successive 'crop' and 'aspect' commands. 0.5x0.5/'center'
+               |    by default.
+               |      'anchor 0x0'     == 'anchor top left' == 'anchor left top'
+               |      'anchor 0.5x0'   == 'anchor top'
+               |      'anchor 0.5x0.5' == 'anchor center'
+               |      'anchor 1x1'     == 'anchor bottom right'
+               |
+               |  aspect-fill [WxH]
+               |  aspect-fit  [WxH]
+               |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to
+               |    'aspect-fill 4x3'. Uses current 'anchor' point or 'center' by default.
                |
                |  crop [WxH | Wx | xH]
-               |    Crops or expands the canvas. The anchor point is CENTER by default and can
-               |    be changed with a preceding 'anchor' command. 'crop Wx' and 'crop xH'
-               |    change the width or height of one dimension but not the other.
-               |
-               |  aspect [fill | fit]  [WxH]
-               |    Crops the image to fit a given aspect ratio. 'aspect 1024x768' has the
-               |    same effect as 'aspect 4x3'. 'aspect' uses the anchor specified by the
-               |    preceding 'anchor' command or CENTER by default.
-               |
-               |  anchor [WxH]
-               |  anchor [left | right | top | bottom | center]
-               |    Specifies the anchor used by successive 'crop' and 'aspect fill/fit'.
-               |    commands. Either proportional values (0.0=left/top, 0.5=center,
-               |    1.0=right/bottom) or positional names may be used ('anchor top left',
-               |    'anchor left', etc.
+               |    Crops/expands image using current 'anchor' point (default: 'center').
                |
                |  flip | hflip | vflip
-               |    Flips (mirrors) an image horizontally or vertically.
+               |    Flips (mirrors) an image horizontally or vertically. 'flip' == 'hflip'.
                |
-               |  rotate [-90|90|180|cw|ccw]
-               |    Rotates the image 90 degrees (clockwise), -90 degrees (counter-clockwise),
+               |  output <filepath>
+               |    Designates output folder, filename, or format - use 'replace' instead of
+               |    'output' to replace original files with the modified versions. Output
+               |    filepaths can contain the following placeholders which are replaced on save:
+               |      {path}     - The original path without the filename.
+               |      {filename} - The original filename+extension without the path.
+               |      {name}     - The original filename without the path or extension.
+               |      {ext}      - The extension of the original filename.
+               |      {001}      - Sequence specification. '{001}' writes '001', '002', etc.
+               |      {w}, {h}   - The width or height of the output image.
+               |
+               |  replace
+               |    Indicates that the original file should be replaced with the result.
+               |
+               |  resize  [WxH | Wx | xH]
+               |    'resize 1024x' on a 512x200 image would create a 1024x400 image, etc.
+               |
+               |  rotate [cw|ccw|180]
+               |    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise,
                |    or 180 degrees.
                |
-               |OUTPUT PATTERN
-               |  path
-               |  path/to/file[.png/.jpg/.jpeg] # Specify .png etc. to output in that format
-               |  filepath-with-{placeholders}
-               |  replace # overwrites source images
-               |
-               |OUTPUT PATTERN PLACEHOLDERS
-               |  {path}      - The original path without the filename.
-               |  {filename}  - The original filename+extension without the path.
-               |  {name}      - The original filename without the path or extension.
-               |  {ext}       - The extension of the original filename.
-               |  {001}       - The sequence number (number of images written out so far). Use
-               |                {001} for a minimum 3 digits starting at 001, {50} for a
-               |                minimum 2 digits starting at 50, etc.
-               |  {w}, {h}    - The width or height of the output image.
-               |
                |EXAMPLES
-               |  imagesize Screenshots/* aspect fill 4x3 resize 320x200 -o "Thumbnails/{name}.jpg"
+               |  # Print the image size of every JPG.
+               |  imagesize *.jpg
+               |
+               |  # Create a 320x200 JPG thumbnail of each PNG image.
+               |  imagesize *.png aspect-fill 4x3 resize 320x200 output "Thumbnails/{name}.jpg"
+               |
+               |  # Rotate an image 90º counter-clockwise and replace the original.
+               |  imagesize WrongOrientation.png rotate ccw replace
 endClass
 
 class Command [abstract]
@@ -268,7 +279,7 @@ class CmdAspect( new_size:XY, is_fit:Logical ) : Command
       local adjusted_height = (w / new_size.x) * new_size.y : Int32
       local adjusted_width  = (h / new_size.y) * new_size.x : Int32
 
-      println "  aspect $ [$x$]" (which{is_fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
+      println "  aspect-$ [$x$]" (which{is_fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
       if (is_fit)
         if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
         else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
@@ -284,12 +295,35 @@ endClass
 class CmdSetAnchor( xy:XY ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
-      println "  anchor ($,$)" (xy.x.format(".3"),xy.y.format(".3"))
+      println "  anchor $x$" (xy.x.format(".2"),xy.y.format(".2"))
       Command.anchor_x = xy.x
       Command.anchor_y = xy.y
       return bitmap
 endClass
 
+class CmdFlip( h=false:Logical, v=false:Logical ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      println "  $" (which{h:"hflip"||"vflip"})
+      bitmap.flip( &=h, &=v )
+      return bitmap
+endClass
+
+class CmdRotate90( cw=false:Logical, ccw=false:Logical ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      println "  rotate $" (which{cw:"cw"||"ccw"})
+      bitmap.rotate_90( &=cw, &=ccw )
+      return bitmap
+endClass
+
+class CmdRotate180 : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      println "  rotate 180"
+      bitmap.rotate_180
+      return bitmap
+endClass
 
 class CmdSave : Command
   GLOBAL PROPERTIES
@@ -312,6 +346,10 @@ class CmdSave : Command
     method call( bitmap:Bitmap )->Bitmap
       local filepath = pattern
 
+      if (File.is_folder(filepath))
+        filepath = File.ensure_ends_with_separator(filepath) + File.filename(bitmap.filepath)
+      endIf
+
       if (seq)
         filepath .= replacing( seq, sequence_number.format(seq_format) )
         ++sequence_number
@@ -326,6 +364,13 @@ class CmdSave : Command
       filepath .= replacing( "{h}",        bitmap.height->String )
 
       println "  -> $ [$x$]" (filepath,bitmap.width,bitmap.height)
+
+      if (filepath.to_lowercase.ends_with(".png"))
+        File.save( filepath, bitmap.to_png_bytes )
+      else
+        File.save( filepath, bitmap.to_jpeg_bytes )
+      endIf
+
       return bitmap
 endClass
 
@@ -334,6 +379,11 @@ class CmdSaveReplace : Command
     method call( bitmap:Bitmap )->Bitmap
       local filepath = bitmap.filepath
       println "  -> $ [$x$]" (filepath,bitmap.width,bitmap.height)
+      if (filepath.to_lowercase.ends_with(".png"))
+        File.save( filepath, bitmap.to_png_bytes )
+      else
+        File.save( filepath, bitmap.to_jpeg_bytes )
+      endIf
       return bitmap
 endClass
 

@@ -1,5 +1,11 @@
+# Rogo
 Build
 *.rogo
+
+# Vim
 *.swp
 *.swo
 
+# Windows
+*.obj
+Libraries/Windows
