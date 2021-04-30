@@ -46,13 +46,15 @@ class ImageSize
       local reader = command//args.to_list<<String>>.reader
       forEach (arg in reader)
         if (arg == "resize")
-          commands.add( CmdResize(read_w_h("resize",reader)) )
+          commands.add( CmdResize(read_wxh_wx_xh("resize",reader)) )
         elseIf (arg == "crop")
-          commands.add( CmdCrop(read_w_h("crop",reader)) )
+          commands.add( CmdCrop(read_wxh_wx_xh("crop",reader)) )
         elseIf (arg == "aspect-fill")
-          commands.add( CmdAspect(read_aspect_w_h(reader),&!is_fit) )
+          commands.add( CmdAspect(read_wxh("aspect-fill",reader),&!is_fit) )
         elseIf (arg == "aspect-fit")
-          commands.add( CmdAspect(read_aspect_w_h(reader),&is_fit) )
+          commands.add( CmdAspect(read_wxh("aspect-fit",reader),&is_fit) )
+        elseIf (arg == "reshape")
+          commands.add( CmdReshape(read_wxh("reshape",reader),&!is_fit) )
         elseIf (arg == "anchor")
           commands.add( CmdSetAnchor(read_anchor_args(reader)) )
         elseIf (arg == "flip" or arg == "hflip")
@@ -98,7 +100,7 @@ class ImageSize
       Console.error.println "ERROR: " + message
       System.exit 1
 
-    method read_w_h( cmd_name:String, reader:Reader<<String>> )->XY
+    method read_wxh_wx_xh( cmd_name:String, reader:Reader<<String>> )->XY
       if (reader.has_another)
         local param = reader.read
         if (param.contains('x'))
@@ -115,7 +117,7 @@ class ImageSize
       error( ''Expected 'WxH', 'Wx', or 'xH' after '$'.''(cmd_name) )
       return XY.zero
 
-    method read_aspect_w_h( reader:Reader<<String>> )->XY
+    method read_wxh( cmd_name:String, reader:Reader<<String>> )->XY
       if (reader.has_another)
         local param = reader.read
         if (param.contains('x'))
@@ -126,7 +128,7 @@ class ImageSize
         endIf
       endIf
 
-      error( ''Expected 'WxH' after 'aspect-fill/fit'.'' )
+      error( ''Expected 'WxH' after '$'.''(cmd_name) )
       return XY.zero
 
     method read_anchor_args( reader:Reader<<String>> )->XY
@@ -181,8 +183,8 @@ class ImageSize
                |      'anchor 0.5x0.5' == 'anchor center'
                |      'anchor 1x1'     == 'anchor bottom right'
                |
-               |  aspect-fill [WxH]
-               |  aspect-fit  [WxH]
+               |  aspect-fill WxH
+               |  aspect-fit  WxH
                |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to
                |    'aspect-fill 4x3'. Uses current 'anchor' point or 'center' by default.
                |
@@ -209,6 +211,9 @@ class ImageSize
                |  resize  [WxH | Wx | xH]
                |    'resize 1024x' on a 512x200 image would create a 1024x400 image, etc.
                |
+               |  reshape WxH
+               |    Performs an `aspect-fill` followed by a `resize`.
+               |
                |  rotate [cw|ccw|180]
                |    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise,
                |    or 180 degrees.
@@ -219,6 +224,9 @@ class ImageSize
                |
                |  # Create a 320x200 JPG thumbnail of each PNG image.
                |  imagesize *.png aspect-fill 4x3 resize 320x200 output "Thumbnails/{name}.jpg"
+               |
+               |  # A shorter equivalent to the above.
+               |  imagesize *.png reshape 320x200 output "Thumbnails/{name}.jpg"
                |
                |  # Rotate an image 90º counter-clockwise and replace the original.
                |  imagesize WrongOrientation.png rotate ccw replace
@@ -287,6 +295,39 @@ class CmdAspect( new_size:XY, is_fit:Logical ) : Command
         if (adjusted_width < h) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
         else                    bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
       endIf
+
+      return bitmap
+endClass
+
+class CmdReshape( new_size:XY, is_fit:Logical ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      block
+        local w = bitmap.width
+        local h = bitmap.height
+        local adjusted_height = (w / new_size.x) * new_size.y : Int32
+        local adjusted_width  = (h / new_size.y) * new_size.x : Int32
+
+        println "  reshape [$x$]" (new_size.x->Int32,new_size.y->Int32)
+        if (is_fit)
+          if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
+          else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+        else
+          if (adjusted_width < h) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+          else                    bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
+        endIf
+      endBlock
+
+      block
+        local new_size = new_size
+        local w = bitmap.width
+        local h = bitmap.height
+        if (new_size.x == 0)     new_size = XY( w*(new_size.y/h), new_size.y )
+        elseIf (new_size.y == 0) new_size = XY( new_size.x, h*(new_size.x/w) )
+        w = new_size.x
+        h = new_size.y
+        bitmap.resize( w, h )
+      endBlock
 
       return bitmap
 endClass

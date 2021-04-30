@@ -2,7 +2,7 @@
 Command line image sizer and cropper.
 
 # Version
-- v1.0
+- v1.1
 - April 29, 2021
 - macOS, Linux, Windows
 - [MIT License](LICENSE)
@@ -63,6 +63,9 @@ ACTIONS
   replace
     Indicates that the original file should be replaced with the result.
 
+  reshape WxH
+    Performs an `aspect-fill` followed by a `resize`.
+
   resize  [WxH | Wx | xH]
     'resize 1024x' on a 512x200 image would create a 1024x400 image, etc.
 
@@ -76,6 +79,9 @@ EXAMPLES
 
   # Create a 320x200 JPG thumbnail of each PNG image.
   imagesize *.png aspect-fill 4x3 resize 320x200 output "Thumbnails/{name}.jpg"
+
+  # A shorter equivalent to the above.
+  imagesize *.png reshape 320x200 output "Thumbnails/{name}.jpg"
 
   # Rotate an image 90º counter-clockwise and replace the original.
   imagesize WrongOrientation.png rotate ccw replace
