@@ -22,7 +22,7 @@ augment Build
     PROJECT           = "ImageSize"
     LAUNCHER_NAME     = "imagesize"
     LAUNCHER_FOLDER   = "/usr/local/bin"
-    ROGUEC_FLAGS      = "--debug"
+    ROGUEC_FLAGS      = ""
     CPP_FLAGS_UNIX    = "-O3"
     CPP_FLAGS_WINDOWS = '/Ob2ity /GF /Gy /ILibraries/Windows/lpng /ILibraries/Windows/jpeg'
 endAugment

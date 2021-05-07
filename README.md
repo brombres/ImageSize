@@ -2,8 +2,8 @@
 Command line image sizer and cropper.
 
 # Version
-- v1.1
-- April 29, 2021
+- v1.2
+- May 6, 2021
 - macOS, Linux, Windows
 - [MIT License](LICENSE)
 - By Abe Pralle
@@ -31,17 +31,20 @@ INPUT PATTERNS
 ACTIONS
   anchor [HxV]
   anchor [left | right | top | bottom | center]
-    Changes anchor for successive 'crop' and 'aspect' commands. 0.5x0.5/'center'
-    by default.
+    Changes anchor for successive 'crop' and 'aspect' commands. 0.5x0.5/'center' by default.
       'anchor 0x0'     == 'anchor top left' == 'anchor left top'
       'anchor 0.5x0'   == 'anchor top'
       'anchor 0.5x0.5' == 'anchor center'
       'anchor 1x1'     == 'anchor bottom right'
 
-  aspect-fill [WxH]
-  aspect-fit  [WxH]
-    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to
-    'aspect-fill 4x3'. Uses current 'anchor' point or 'center' by default.
+  aspect-fill WxH
+  aspect-fit  WxH
+    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
+    Uses current 'anchor' point or 'center' by default.
+
+  column
+    Joins all images into a single vertical column, resizing as necessary to the width of the widest
+    image. Incompatible with the 'replace' option. See also: grid and row.
 
   crop [WxH | Wx | xH]
     Crops/expands image using current 'anchor' point (default: 'center').
@@ -49,10 +52,14 @@ ACTIONS
   flip | hflip | vflip
     Flips (mirrors) an image horizontally or vertically. 'flip' == 'hflip'.
 
+  grid [WxH | Wx | xH]
+    Arranges all images into a single grid. Incompatible with the 'replace' option. See also: column
+    and row.
+
   output <filepath>
-    Designates output folder, filename, or format - use 'replace' instead of
-    'output' to replace original files with the modified versions. Output
-    filepaths can contain the following placeholders which are replaced on save:
+    Designates output folder, filename, or format - use 'replace' instead of 'output' to replace
+    original files with the modified versions. Output filepaths can contain the following
+    placeholders which are replaced on save:
       {path}     - The original path without the filename.
       {filename} - The original filename+extension without the path.
       {name}     - The original filename without the path or extension.
@@ -63,15 +70,18 @@ ACTIONS
   replace
     Indicates that the original file should be replaced with the result.
 
-  reshape WxH
-    Performs an `aspect-fill` followed by a `resize`.
-
   resize  [WxH | Wx | xH]
     'resize 1024x' on a 512x200 image would create a 1024x400 image, etc.
 
+  reshape WxH
+    Performs an `aspect-fill` followed by a `resize`.
+
   rotate [cw|ccw|180]
-    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise,
-    or 180 degrees.
+    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise, or 180 degrees.
+
+  row
+    Joins all images into a single horizontal row, resizing as necessary to the height of the
+    tallest image. Incompatible with the 'replace' option. See also: column and grid.
 
 EXAMPLES
   # Print the image size of every JPG.
