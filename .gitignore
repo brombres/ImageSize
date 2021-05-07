@@ -9,3 +9,6 @@ Build
 # Windows
 *.obj
 Libraries/Windows
+
+Releases/*
+!Releases/README.md

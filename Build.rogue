@@ -145,6 +145,64 @@ routine verbose_delete( filepath:String )
   endIf
 endRoutine
 
+routine rogo_package
+  local src = File.load_as_string( "Source/ImageSize.rogue" ).before_first( "try" )
+  local version = src.extract_string( ''*VERSION_INFO "$"*'' )
+  local date    = src.extract_string( ''*VERSION_DATE "$"*'' )
+  local usage = Process.run("imagesize")->String.from_first("USAGE").replacing( "\r", "" )
+  require version
+  require date
+
+  update_readme( File("README.md"), version, date, usage )
+
+  local release_folder = "Releases/$/ImageSize" (version)
+  File.create_folder( release_folder )
+  File.copy( "Releases/README.md", release_folder )
+  update_readme( File("$/README.md"(release_folder)), version, date, usage )
+  local mac_folder = "$/macOS" (release_folder)
+  local win_folder = "$/Windows" (release_folder)
+  File.create_folder( mac_folder )
+  File.create_folder( win_folder )
+  File.copy( "Build/ImageSize-macOS", "$/imagesize"(mac_folder) )
+  File.copy( "Build/imagesize.exe", win_folder )
+  execute "(cd Releases/$ && zip -r ImageSize-$.zip ImageSize)"(version,version)
+endRoutine
+
+routine update_readme( file:File, version:String, date:String, usage:String )
+  local LOOK_FOR_USAGE_HEADER = 0
+  local LOOK_FOR_USAGE_START  = 1
+  local LOOK_FOR_USAGE_END    = 2
+  local NO_MORE_CHANGES       = 3
+  local state = LOOK_FOR_USAGE_HEADER
+  forEach (line in rebuilder=file.rebuilder)
+    which (state)
+      case LOOK_FOR_USAGE_HEADER
+        rebuilder.println line
+        if (line.contains("# Version"))
+          rebuilder.read  # discard "- vX.Y"
+          rebuilder.read  # discard "- (Date)"
+          rebuilder.println "- $"(version)
+          rebuilder.println "- $"(date)
+        elseIf (line.contains("# Usage"))
+          state = LOOK_FOR_USAGE_START
+        endIf
+      case LOOK_FOR_USAGE_START
+        rebuilder.println line
+        if (line.contains("```"))
+          rebuilder.print( usage ).flush
+          state = LOOK_FOR_USAGE_END
+        endIf
+      case LOOK_FOR_USAGE_END
+        if (line.contains("```"))
+          rebuilder.println( line )
+          state = NO_MORE_CHANGES
+        endIf
+      case NO_MORE_CHANGES
+        rebuilder.println( line )
+    endWhich
+  endForEach
+endRoutine
+
 routine execute( commands:String, &suppress_error )->Logical
   forEach (cmd in LineReader(commands))
     print( "> " ).println( cmd )

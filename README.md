@@ -2,8 +2,8 @@
 Command line image sizer and cropper.
 
 # Version
-- v1.2
-- May 6, 2021
+- v1.3
+- May 7, 2021
 - macOS, Linux, Windows
 - [MIT License](LICENSE)
 - By Abe Pralle
@@ -42,19 +42,11 @@ ACTIONS
     Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
     Uses current 'anchor' point or 'center' by default.
 
-  column
-    Joins all images into a single vertical column, resizing as necessary to the width of the widest
-    image. Incompatible with the 'replace' option. See also: grid and row.
-
   crop [WxH | Wx | xH]
     Crops/expands image using current 'anchor' point (default: 'center').
 
   flip | hflip | vflip
     Flips (mirrors) an image horizontally or vertically. 'flip' == 'hflip'.
-
-  grid [WxH | Wx | xH]
-    Arranges all images into a single grid. Incompatible with the 'replace' option. See also: column
-    and row.
 
   output <filepath>
     Designates output folder, filename, or format - use 'replace' instead of 'output' to replace
@@ -79,9 +71,12 @@ ACTIONS
   rotate [cw|ccw|180]
     Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise, or 180 degrees.
 
-  row
-    Joins all images into a single horizontal row, resizing as necessary to the height of the
-    tallest image. Incompatible with the 'replace' option. See also: column and grid.
+  splice [h | v | WxH | Wx | xH]
+    Joins all images together into a single horizontal row (`h`), vertical column (`v`), or grid.
+
+  split WxH
+    Splits apart each image into "WxH" individual images. "W" and "H" are column and row counts, not
+    pixel sizes.
 
 EXAMPLES
   # Print the image size of every JPG.
@@ -95,5 +90,14 @@ EXAMPLES
 
   # Rotate an image 90º counter-clockwise and replace the original.
   imagesize WrongOrientation.png rotate ccw replace
+
+  # Splice together a horizontal strip of images.
+  imagesize *.png splice h
+
+  # Arrange images into a grid that's 2 rows high.
+  imagesize *.png splice x2
+
+  # Split a 600x600 image containing 3x2 tiles into six 300x200 tiles "Tile-0.jpg".."Tile-5.jpg".
+  imagesize Tiles.png split 3x2 output "Tile-{0}.jpg"
 ```
 

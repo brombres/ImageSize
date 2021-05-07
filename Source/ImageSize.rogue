@@ -2,10 +2,10 @@
 # ImageSize.rogue
 # April 29, 2021
 #================================================================================
+$define VERSION_INFO "v1.3"
+$define VERSION_DATE "May 7, 2021"
 
 $requireRogue "1.8.1"
-
-$define VERSION_INFO "v1.2 by Abe Pralle"
 
 uses Utility/CommandLineParser
 uses Bitmap
@@ -28,10 +28,9 @@ class ImageSize
     commands        = Command[]
     output_command  : Command
 
-    is_row     = false
-    is_column  = false
-    is_grid    = false
     is_replace = false
+    is_splice  = false
+    is_split   = false
     grid_size  : XY
 
   METHODS
@@ -83,36 +82,44 @@ class ImageSize
         elseIf (arg == "replace")
           output_command = CmdSaveReplace()
           is_replace = true
-        elseIf (arg == "row")
-          is_row = true
-        elseIf (arg == "column")
-          is_column = true
-        elseIf (arg == "grid")
-          is_grid = true
-          grid_size = read_wxh_wx_xh( "grid", reader )
+        elseIf (arg == "splice")
+          is_splice = true
+          grid_size = read_splice_args( reader )
           if (grid_size.is_zero) error( "Grid size cannot be (0,0)." )
+          if (is_split) error( "'splice' cannot be used with 'split'." )
+        elseIf (arg == "split")
+          is_split  = true
+          grid_size = read_wxh( "split", reader )
+          if (grid_size.x < 1 or grid_size.y < 1) error( "'split' dimensions must be greater than zero." )
+          if (is_splice) error( "'split' cannot be used with 'splice'." )
         else
           input_filepaths.add( arg )
         endIf
       endForEach
 
-      which (is_row->Int32 + is_column->Int32 + is_grid->Int32)
-        case 0
-          noAction
-        case 1
-          if (is_replace)
-            error( "'replace' cannot be used with 'column', 'row', or 'grid'." )
-          endIf
-        others
-          error( "Can only specify one layout among 'column', 'row', and 'grid'." )
-      endWhich
+      if (is_replace)
+        if (is_splice) error( "'replace' cannot be used with 'splice'." )
+        if (is_split)  error( "'replace' cannot be used with 'split'." )
+      endIf
 
-      local using_layout = is_row or is_column or is_grid
-      if (not output_command and (commands.count > 1 or using_layout))
-        output_command = CmdSave( "{name}-{w}x{h}.{ext}" )
+      if (not output_command)
+        if  (commands.count > 1 or is_splice or is_split)
+          if (is_split)
+            local total = grid_size.x->Int32 * grid_size.y->Int32
+            local format = "0"
+            forEach (pow in 1..6)
+              if (total < 10^pow) escapeForEach
+              format = "0" + format
+            endForEach
+            output_command = CmdSave( "{name}-{w}x{h}-{$}.{ext}"(format) )
+          else
+            output_command = CmdSave( "{name}-{w}x{h}.{ext}" )
+          endIf
+        endIf
       endIf
 
       local bitmaps = Bitmap[]
+      local initial_sequence_number = CmdSave.sequence_number
       forEach (filepath in input_filepaths)
         Command.anchor_x = 0.5
         Command.anchor_y = 0.5
@@ -122,26 +129,29 @@ class ImageSize
           bitmap = cmd( bitmap )
         endForEach
 
-        if (using_layout)
+        if (is_split)
+          CmdSave.sequence_number = initial_sequence_number
+          split( bitmap )
+        elseIf (is_splice)
           bitmaps.add( bitmap )
         else
           if (output_command) output_command( bitmap )
         endIf
       endForEach
 
-      if (using_layout)
-        local bitmap = perform_layout( bitmaps )
+      if (is_splice)
+        local bitmap = splice( bitmaps )
         output_command( bitmap )
       endIf
 
-    method perform_layout( bitmaps:Bitmap[] )->Bitmap
-      if (is_row)
-        println "row x$" (bitmaps.count)
+    method splice( bitmaps:Bitmap[] )->Bitmap
+      if (grid_size.y == 1)
+        println "splice h"
         local max_height = 0
         max_height .= or_larger( (forEach in bitmaps).height )
-        local cmd = CmdResize( XY(0,max_height) )
+        local cmd = CmdResize( XY(0,max_height), &quiet )
         forEach (bitmap at i in bitmaps)
-          bitmaps[i] = cmd( bitmap, &quiet )
+          bitmaps[i] = cmd( bitmap )
         endForEach
 
         local total_w = 0
@@ -154,13 +164,13 @@ class ImageSize
         endForEach
         return result
 
-      elseIf (is_column)
-        println "column x$" (bitmaps.count)
+      elseIf (grid_size.x == 1)
+        println "splice v"
         local max_width = 0
         max_width .= or_larger( (forEach in bitmaps).width )
-        local cmd = CmdResize( XY(max_width,0) )
+        local cmd = CmdResize( XY(max_width,0), &quiet )
         forEach (bitmap at i in bitmaps)
-          bitmaps[i] = cmd( bitmap, &quiet )
+          bitmaps[i] = cmd( bitmap )
         endForEach
 
         local total_h = 0
@@ -179,7 +189,7 @@ class ImageSize
         local h = grid_size.y->Int32
         if (w == 0) w = (bitmaps.count + (h-1)) / h
         if (h == 0) h = (bitmaps.count + (w-1)) / w
-        println "grid $x$" (w,h)
+        println "splice $x$" (w,h)
 
         loop (w*h - bitmaps.count)
           bitmaps.add( Bitmap(1,1,Color.BLACK) )
@@ -189,12 +199,12 @@ class ImageSize
         max_width .= or_larger( (forEach in bitmaps).width )
         local max_height = 0
         max_height .= or_larger( (forEach in bitmaps).height )
-        local cmd = CmdReshape( XY(max_width,max_height), &fit )
+        local cmd = CmdReshape( XY(max_width,max_height), &fit, &quiet )
         forEach (bitmap at i in bitmaps)
-          bitmaps[i] = cmd( bitmap, &quiet )
+          bitmaps[i] = cmd( bitmap )
         endForEach
 
-        local result = Bitmap( max_width*w, max_height*h ).[ filepath="ImageGrid.png" ]
+        local result = Bitmap( max_width*w, max_height*h ).[ filepath="ImageTable.png" ]
         local iterator = bitmaps.iterator
         forEach (j in 0..<h)
           forEach (i in 0..<w)
@@ -205,6 +215,29 @@ class ImageSize
         return result
       endIf
 
+    method split( bitmap:Bitmap )
+      local grid_w = grid_size.x
+      local grid_h = grid_size.y
+      local remaining_rows    = grid_h
+      local remaining_h = bitmap.height
+      local y = 0
+      forEach (j in 0.0..<grid_h)
+        local x = 0
+        local h = Int32(remaining_h / remaining_rows)
+        local remaining_w = bitmap.width
+        local remaining_columns = grid_w
+        forEach (i in 0.0..<grid_w)
+          local w = Int32(remaining_w / remaining_columns)
+          local bounds = Box( x, y, w, h )
+          output_command( Bitmap(bitmap,bounds).[filepath=bitmap.filepath] )
+          x += w
+          remaining_w -= w
+          --remaining_columns
+        endForEach
+        y += h
+        remaining_h -= h
+        --remaining_rows
+      endForEach
 
     method error( message:String )
       Console.error.println "ERROR: " + message
@@ -225,6 +258,27 @@ class ImageSize
       endIf
 
       error( ''Expected 'WxH', 'Wx', or 'xH' after '$'.''(cmd_name) )
+      return XY.zero
+
+    method read_splice_args( reader:Reader<<String>> )->XY
+      if (reader.has_another)
+        local param = reader.read
+        if (param == "h")
+          return XY(0,1)
+        elseIf (param == "v")
+          return XY(1,0)
+        elseIf (param.contains('x'))
+          local parts = param.split( 'x' )
+          if (parts[0].count)
+            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
+            else                return XY(parts[0]->Int32,0)
+          else
+            if (parts[1].count) return XY(0,parts[1]->Int32)
+          endIf
+        endIf
+      endIf
+
+      error( ''Expected 'h', 'v', 'WxH', 'Wx', or 'xH' after 'splice'.'' )
       return XY.zero
 
     method read_wxh( cmd_name:String, reader:Reader<<String>> )->XY
@@ -273,7 +327,8 @@ class ImageSize
 
     method show_usage
       println  "imagesize"
-      println  "$" (VERSION_INFO)
+      println  "$ by Abe Pralle" (VERSION_INFO)
+      println  VERSION_DATE
       println  "github.com/AbePralle/ImageSize"
 
       println @|
@@ -297,19 +352,11 @@ class ImageSize
                |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
                |    Uses current 'anchor' point or 'center' by default.
                |
-               |  column
-               |    Joins all images into a single vertical column, resizing as necessary to the width of the widest
-               |    image. Incompatible with the 'replace' option. See also: grid and row.
-               |
                |  crop [WxH | Wx | xH]
                |    Crops/expands image using current 'anchor' point (default: 'center').
                |
                |  flip | hflip | vflip
                |    Flips (mirrors) an image horizontally or vertically. 'flip' == 'hflip'.
-               |
-               |  grid [WxH | Wx | xH]
-               |    Arranges all images into a single grid. Incompatible with the 'replace' option. See also: column
-               |    and row.
                |
                |  output <filepath>
                |    Designates output folder, filename, or format - use 'replace' instead of 'output' to replace
@@ -334,9 +381,12 @@ class ImageSize
                |  rotate [cw|ccw|180]
                |    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise, or 180 degrees.
                |
-               |  row
-               |    Joins all images into a single horizontal row, resizing as necessary to the height of the
-               |    tallest image. Incompatible with the 'replace' option. See also: column and grid.
+               |  splice [h | v | WxH | Wx | xH]
+               |    Joins all images together into a single horizontal row (`h`), vertical column (`v`), or grid.
+               |
+               |  split WxH
+               |    Splits apart each image into "WxH" individual images. "W" and "H" are column and row counts, not
+               |    pixel sizes.
                |
                |EXAMPLES
                |  # Print the image size of every JPG.
@@ -350,6 +400,15 @@ class ImageSize
                |
                |  # Rotate an image 90º counter-clockwise and replace the original.
                |  imagesize WrongOrientation.png rotate ccw replace
+               |
+               |  # Splice together a horizontal strip of images.
+               |  imagesize *.png splice h
+               |
+               |  # Arrange images into a grid that's 2 rows high.
+               |  imagesize *.png splice x2
+               |
+               |  # Split a 600x600 image containing 3x2 tiles into six 300x200 tiles "Tile-0.jpg".."Tile-5.jpg".
+               |  imagesize Tiles.png split 3x2 output "Tile-{0}.jpg"
 endClass
 
 class Command [abstract]
@@ -506,6 +565,7 @@ class CmdSave : Command
 
     method call( bitmap:Bitmap )->Bitmap
       local filepath = pattern
+      require bitmap.filepath
 
       if (File.is_folder(filepath))
         filepath = File.ensure_ends_with_separator(filepath) + File.filename(bitmap.filepath)
