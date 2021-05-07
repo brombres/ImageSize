@@ -28,6 +28,12 @@ class ImageSize
     commands        = Command[]
     output_command  : Command
 
+    is_row     = false
+    is_column  = false
+    is_grid    = false
+    is_replace = false
+    grid_size  : XY
+
   METHODS
     method init( args:String[] )
       local command = CommandLineParser().
@@ -50,11 +56,11 @@ class ImageSize
         elseIf (arg == "crop")
           commands.add( CmdCrop(read_wxh_wx_xh("crop",reader)) )
         elseIf (arg == "aspect-fill")
-          commands.add( CmdAspect(read_wxh("aspect-fill",reader),&!is_fit) )
+          commands.add( CmdAspect(read_wxh("aspect-fill",reader),&!fit) )
         elseIf (arg == "aspect-fit")
-          commands.add( CmdAspect(read_wxh("aspect-fit",reader),&is_fit) )
+          commands.add( CmdAspect(read_wxh("aspect-fit",reader),&fit) )
         elseIf (arg == "reshape")
-          commands.add( CmdReshape(read_wxh("reshape",reader),&!is_fit) )
+          commands.add( CmdReshape(read_wxh("reshape",reader),&!fit) )
         elseIf (arg == "anchor")
           commands.add( CmdSetAnchor(read_anchor_args(reader)) )
         elseIf (arg == "flip" or arg == "hflip")
@@ -76,15 +82,37 @@ class ImageSize
           output_command = CmdSave( reader.read )
         elseIf (arg == "replace")
           output_command = CmdSaveReplace()
+          is_replace = true
+        elseIf (arg == "row")
+          is_row = true
+        elseIf (arg == "column")
+          is_column = true
+        elseIf (arg == "grid")
+          is_grid = true
+          grid_size = read_wxh_wx_xh( "grid", reader )
+          if (grid_size.is_zero) error( "Grid size cannot be (0,0)." )
         else
           input_filepaths.add( arg )
         endIf
       endForEach
 
-      if (not output_command and commands.count > 1)
+      which (is_row->Int32 + is_column->Int32 + is_grid->Int32)
+        case 0
+          noAction
+        case 1
+          if (is_replace)
+            error( "'replace' cannot be used with 'column', 'row', or 'grid'." )
+          endIf
+        others
+          error( "Can only specify one layout among 'column', 'row', and 'grid'." )
+      endWhich
+
+      local using_layout = is_row or is_column or is_grid
+      if (not output_command and (commands.count > 1 or using_layout))
         output_command = CmdSave( "{name}-{w}x{h}.{ext}" )
       endIf
 
+      local bitmaps = Bitmap[]
       forEach (filepath in input_filepaths)
         Command.anchor_x = 0.5
         Command.anchor_y = 0.5
@@ -93,8 +121,90 @@ class ImageSize
         forEach (cmd in commands)
           bitmap = cmd( bitmap )
         endForEach
-        if (output_command) output_command( bitmap )
+
+        if (using_layout)
+          bitmaps.add( bitmap )
+        else
+          if (output_command) output_command( bitmap )
+        endIf
       endForEach
+
+      if (using_layout)
+        local bitmap = perform_layout( bitmaps )
+        output_command( bitmap )
+      endIf
+
+    method perform_layout( bitmaps:Bitmap[] )->Bitmap
+      if (is_row)
+        println "row x$" (bitmaps.count)
+        local max_height = 0
+        max_height .= or_larger( (forEach in bitmaps).height )
+        local cmd = CmdResize( XY(0,max_height) )
+        forEach (bitmap at i in bitmaps)
+          bitmaps[i] = cmd( bitmap, &quiet )
+        endForEach
+
+        local total_w = 0
+        total_w += (forEach in bitmaps).width
+        local result = Bitmap( total_w, max_height ).[ filepath="ImageRow.png" ]
+        local x = 0
+        forEach (bitmap in bitmaps)
+          bitmap.blit( result, x, 0 )
+          x += bitmap.width
+        endForEach
+        return result
+
+      elseIf (is_column)
+        println "column x$" (bitmaps.count)
+        local max_width = 0
+        max_width .= or_larger( (forEach in bitmaps).width )
+        local cmd = CmdResize( XY(max_width,0) )
+        forEach (bitmap at i in bitmaps)
+          bitmaps[i] = cmd( bitmap, &quiet )
+        endForEach
+
+        local total_h = 0
+        total_h += (forEach in bitmaps).height
+        local result = Bitmap( max_width, total_h ).[ filepath="ImageColumn.png" ]
+        local y = 0
+        forEach (bitmap in bitmaps)
+          bitmap.blit( result, 0, y )
+          y += bitmap.height
+        endForEach
+        return result
+
+      else
+        # Grid
+        local w = grid_size.x->Int32
+        local h = grid_size.y->Int32
+        if (w == 0) w = (bitmaps.count + (h-1)) / h
+        if (h == 0) h = (bitmaps.count + (w-1)) / w
+        println "grid $x$" (w,h)
+
+        loop (w*h - bitmaps.count)
+          bitmaps.add( Bitmap(1,1,Color.BLACK) )
+        endLoop
+
+        local max_width = 0
+        max_width .= or_larger( (forEach in bitmaps).width )
+        local max_height = 0
+        max_height .= or_larger( (forEach in bitmaps).height )
+        local cmd = CmdReshape( XY(max_width,max_height), &fit )
+        forEach (bitmap at i in bitmaps)
+          bitmaps[i] = cmd( bitmap, &quiet )
+        endForEach
+
+        local result = Bitmap( max_width*w, max_height*h ).[ filepath="ImageGrid.png" ]
+        local iterator = bitmaps.iterator
+        forEach (j in 0..<h)
+          forEach (i in 0..<w)
+            iterator.read.blit( result, i*max_width, j*max_height )
+          endForEach
+        endForEach
+
+        return result
+      endIf
+
 
     method error( message:String )
       Console.error.println "ERROR: " + message
@@ -176,8 +286,7 @@ class ImageSize
                |ACTIONS
                |  anchor [HxV]
                |  anchor [left | right | top | bottom | center]
-               |    Changes anchor for successive 'crop' and 'aspect' commands. 0.5x0.5/'center'
-               |    by default.
+               |    Changes anchor for successive 'crop' and 'aspect' commands. 0.5x0.5/'center' by default.
                |      'anchor 0x0'     == 'anchor top left' == 'anchor left top'
                |      'anchor 0.5x0'   == 'anchor top'
                |      'anchor 0.5x0.5' == 'anchor center'
@@ -185,8 +294,12 @@ class ImageSize
                |
                |  aspect-fill WxH
                |  aspect-fit  WxH
-               |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to
-               |    'aspect-fill 4x3'. Uses current 'anchor' point or 'center' by default.
+               |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
+               |    Uses current 'anchor' point or 'center' by default.
+               |
+               |  column
+               |    Joins all images into a single vertical column, resizing as necessary to the width of the widest
+               |    image. Incompatible with the 'replace' option. See also: grid and row.
                |
                |  crop [WxH | Wx | xH]
                |    Crops/expands image using current 'anchor' point (default: 'center').
@@ -194,10 +307,14 @@ class ImageSize
                |  flip | hflip | vflip
                |    Flips (mirrors) an image horizontally or vertically. 'flip' == 'hflip'.
                |
+               |  grid [WxH | Wx | xH]
+               |    Arranges all images into a single grid. Incompatible with the 'replace' option. See also: column
+               |    and row.
+               |
                |  output <filepath>
-               |    Designates output folder, filename, or format - use 'replace' instead of
-               |    'output' to replace original files with the modified versions. Output
-               |    filepaths can contain the following placeholders which are replaced on save:
+               |    Designates output folder, filename, or format - use 'replace' instead of 'output' to replace
+               |    original files with the modified versions. Output filepaths can contain the following
+               |    placeholders which are replaced on save:
                |      {path}     - The original path without the filename.
                |      {filename} - The original filename+extension without the path.
                |      {name}     - The original filename without the path or extension.
@@ -215,8 +332,11 @@ class ImageSize
                |    Performs an `aspect-fill` followed by a `resize`.
                |
                |  rotate [cw|ccw|180]
-               |    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise,
-               |    or 180 degrees.
+               |    Rotates the image 90 degrees clockwise, 90 degrees counter-clockwise, or 180 degrees.
+               |
+               |  row
+               |    Joins all images into a single horizontal row, resizing as necessary to the height of the
+               |    tallest image. Incompatible with the 'replace' option. See also: column and grid.
                |
                |EXAMPLES
                |  # Print the image size of every JPG.
@@ -252,7 +372,7 @@ class CmdPrintInfo : Command
       return bitmap
 endClass
 
-class CmdResize( new_size:XY ) : Command
+class CmdResize( new_size:XY, quiet=false:Logical ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       local new_size = new_size
@@ -262,7 +382,7 @@ class CmdResize( new_size:XY ) : Command
       elseIf (new_size.y == 0) new_size = XY( new_size.x, h*(new_size.x/w) )
       w = new_size.x
       h = new_size.y
-      println "  resize [$x$]" (w,h)
+      if (not quiet) println "  resize [$x$]" (w,h)
       bitmap.resize( w, h )
       return bitmap
 endClass
@@ -279,7 +399,7 @@ class CmdCrop( new_size:XY ) : Command
       return bitmap
 endClass
 
-class CmdAspect( new_size:XY, is_fit:Logical ) : Command
+class CmdAspect( new_size:XY, fit:Logical ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       local w = bitmap.width
@@ -287,8 +407,8 @@ class CmdAspect( new_size:XY, is_fit:Logical ) : Command
       local adjusted_height = (w / new_size.x) * new_size.y : Int32
       local adjusted_width  = (h / new_size.y) * new_size.x : Int32
 
-      println "  aspect-$ [$x$]" (which{is_fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
-      if (is_fit)
+      println "  aspect-$ [$x$]" (which{fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
+      if (fit)
         if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
         else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
       else
@@ -299,7 +419,7 @@ class CmdAspect( new_size:XY, is_fit:Logical ) : Command
       return bitmap
 endClass
 
-class CmdReshape( new_size:XY, is_fit:Logical ) : Command
+class CmdReshape( new_size:XY, fit=false:Logical, quiet=false:Logical ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       block
@@ -308,8 +428,8 @@ class CmdReshape( new_size:XY, is_fit:Logical ) : Command
         local adjusted_height = (w / new_size.x) * new_size.y : Int32
         local adjusted_width  = (h / new_size.y) * new_size.x : Int32
 
-        println "  reshape [$x$]" (new_size.x->Int32,new_size.y->Int32)
-        if (is_fit)
+        if (not quiet) println "  reshape [$x$]" (new_size.x->Int32,new_size.y->Int32)
+        if (fit)
           if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
           else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
         else
