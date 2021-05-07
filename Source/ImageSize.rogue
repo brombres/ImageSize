@@ -292,7 +292,7 @@ class CmdAspect( new_size:XY, is_fit:Logical ) : Command
         if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
         else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
       else
-        if (adjusted_width < h) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+        if (adjusted_width < w) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
         else                    bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
       endIf
 
@@ -313,7 +313,7 @@ class CmdReshape( new_size:XY, is_fit:Logical ) : Command
           if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
           else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
         else
-          if (adjusted_width < h) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+          if (adjusted_width < w) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
           else                    bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
         endIf
       endBlock
