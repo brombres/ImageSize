@@ -2,12 +2,12 @@
 Command line image sizer and cropper.
 
 # Version
-- v1.3
-- May 7, 2021
-- macOS, Linux, Windows
-- [MIT License](LICENSE)
-- By Abe Pralle
-- [github.com/AbePralle/ImageSize](https://github.com/AbePralle/ImageSize)
+About     | Current Release
+----------|-----------------------
+Version   | 1.3
+Date      | September 9, 2022
+Platforms | Windows, macOS, Linux
+License   | [MIT License](LICENSE)
 
 # Installation
 

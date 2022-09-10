@@ -2,13 +2,14 @@
 # ImageSize.rogue
 # April 29, 2021
 #================================================================================
-$define VERSION_INFO "v1.3"
-$define VERSION_DATE "May 7, 2021"
+$define VERSION "1.3"
+$define DATE    "May 7, 2021"
 
-$requireRogue "1.8.1"
+$requireRogue "2.0.9"
 
-uses Utility/CommandLineParser
+uses Console/CommandLineParser
 uses Bitmap
+uses Bitmap/IO
 uses Geometry
 
 try
@@ -326,9 +327,8 @@ class ImageSize
       return XY.zero
 
     method show_usage
-      println  "imagesize"
-      println  "$ by Abe Pralle" (VERSION_INFO)
-      println  VERSION_DATE
+      println  "ImageSize v$"(VERSION)
+      println  "$ by Abe Pralle" (DATE)
       println  "github.com/AbePralle/ImageSize"
 
       println @|
@@ -565,10 +565,10 @@ class CmdSave : Command
 
     method call( bitmap:Bitmap )->Bitmap
       local filepath = pattern
-      require bitmap.filepath
+      assert bitmap.filepath
 
-      if (File.is_folder(filepath))
-        filepath = File.ensure_ends_with_separator(filepath) + File.filename(bitmap.filepath)
+      if (File(filepath).is_folder)
+        filepath = File(filepath) / File(bitmap.filepath).filename
       endIf
 
       if (seq)
@@ -577,19 +577,19 @@ class CmdSave : Command
       endIf
 
       filepath .= replacing( "{filepath}", bitmap.filepath )
-      filepath .= replacing( "{filename}", File.filename(bitmap.filepath) )
-      filepath .= replacing( "{name}",     File.filename(bitmap.filepath).before_last('.') )
-      filepath .= replacing( "{ext}",      File.extension(bitmap.filepath) )
-      filepath .= replacing( "{path}",     File.path(bitmap.filepath) )
+      filepath .= replacing( "{filename}", File(bitmap.filepath).filename )
+      filepath .= replacing( "{name}",     File(bitmap.filepath).filename.before_last('.') )
+      filepath .= replacing( "{ext}",      File(bitmap.filepath).extension )
+      filepath .= replacing( "{path}",     File(bitmap.filepath).folder )
       filepath .= replacing( "{w}",        bitmap.width->String )
       filepath .= replacing( "{h}",        bitmap.height->String )
 
       println "  -> $ [$x$]" (filepath,bitmap.width,bitmap.height)
 
       if (filepath.to_lowercase.ends_with(".png"))
-        File.save( filepath, bitmap.to_png_bytes )
+        File( filepath ).save( bitmap.to_png_bytes )
       else
-        File.save( filepath, bitmap.to_jpeg_bytes )
+        File( filepath ).save( bitmap.to_jpeg_bytes )
       endIf
 
       return bitmap
@@ -601,11 +601,10 @@ class CmdSaveReplace : Command
       local filepath = bitmap.filepath
       println "  -> $ [$x$]" (filepath,bitmap.width,bitmap.height)
       if (filepath.to_lowercase.ends_with(".png"))
-        File.save( filepath, bitmap.to_png_bytes )
+        File( filepath ).save( bitmap.to_png_bytes )
       else
-        File.save( filepath, bitmap.to_jpeg_bytes )
+        File( filepath ).save( bitmap.to_jpeg_bytes )
       endIf
       return bitmap
 endClass
-
 
