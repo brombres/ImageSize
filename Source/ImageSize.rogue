@@ -32,7 +32,7 @@ class ImageSize
     is_replace = false
     is_splice  = false
     is_split   = false
-    grid_size  : XY
+    grid_size  : RealXY
 
   METHODS
     method init( args:String[] )
@@ -150,7 +150,7 @@ class ImageSize
         println "splice h"
         local max_height = 0
         max_height .= or_larger( (forEach in bitmaps).height )
-        local cmd = CmdResize( XY(0,max_height), &quiet )
+        local cmd = CmdResize( RealXY(0,max_height), &quiet )
         forEach (bitmap at i in bitmaps)
           bitmaps[i] = cmd( bitmap )
         endForEach
@@ -169,7 +169,7 @@ class ImageSize
         println "splice v"
         local max_width = 0
         max_width .= or_larger( (forEach in bitmaps).width )
-        local cmd = CmdResize( XY(max_width,0), &quiet )
+        local cmd = CmdResize( RealXY(max_width,0), &quiet )
         forEach (bitmap at i in bitmaps)
           bitmaps[i] = cmd( bitmap )
         endForEach
@@ -200,7 +200,7 @@ class ImageSize
         max_width .= or_larger( (forEach in bitmaps).width )
         local max_height = 0
         max_height .= or_larger( (forEach in bitmaps).height )
-        local cmd = CmdReshape( XY(max_width,max_height), &fit, &quiet )
+        local cmd = CmdReshape( RealXY(max_width,max_height), &fit, &quiet )
         forEach (bitmap at i in bitmaps)
           bitmaps[i] = cmd( bitmap )
         endForEach
@@ -244,65 +244,65 @@ class ImageSize
       Console.error.println "ERROR: " + message
       System.exit 1
 
-    method read_wxh_wx_xh( cmd_name:String, reader:Reader<<String>> )->XY
+    method read_wxh_wx_xh( cmd_name:String, reader:Reader<<String>> )->RealXY
       if (reader.has_another)
         local param = reader.read
         if (param.contains('x'))
           local parts = param.split( 'x' )
           if (parts[0].count)
-            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
-            else                return XY(parts[0]->Int32,0)
+            if (parts[1].count) return RealXY(parts[0]->Int32,parts[1]->Int32)
+            else                return RealXY(parts[0]->Int32,0)
           else
-            if (parts[1].count) return XY(0,parts[1]->Int32)
+            if (parts[1].count) return RealXY(0,parts[1]->Int32)
           endIf
         endIf
       endIf
 
       error( ''Expected 'WxH', 'Wx', or 'xH' after '$'.''(cmd_name) )
-      return XY.zero
+      return RealXY.zero
 
-    method read_splice_args( reader:Reader<<String>> )->XY
+    method read_splice_args( reader:Reader<<String>> )->RealXY
       if (reader.has_another)
         local param = reader.read
         if (param == "h")
-          return XY(0,1)
+          return RealXY(0,1)
         elseIf (param == "v")
-          return XY(1,0)
+          return RealXY(1,0)
         elseIf (param.contains('x'))
           local parts = param.split( 'x' )
           if (parts[0].count)
-            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
-            else                return XY(parts[0]->Int32,0)
+            if (parts[1].count) return RealXY(parts[0]->Int32,parts[1]->Int32)
+            else                return RealXY(parts[0]->Int32,0)
           else
-            if (parts[1].count) return XY(0,parts[1]->Int32)
+            if (parts[1].count) return RealXY(0,parts[1]->Int32)
           endIf
         endIf
       endIf
 
       error( ''Expected 'h', 'v', 'WxH', 'Wx', or 'xH' after 'splice'.'' )
-      return XY.zero
+      return RealXY.zero
 
-    method read_wxh( cmd_name:String, reader:Reader<<String>> )->XY
+    method read_wxh( cmd_name:String, reader:Reader<<String>> )->RealXY
       if (reader.has_another)
         local param = reader.read
         if (param.contains('x'))
           local parts = param.split( 'x' )
           if (parts[0].count)
-            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
+            if (parts[1].count) return RealXY(parts[0]->Int32,parts[1]->Int32)
           endIf
         endIf
       endIf
 
       error( ''Expected 'WxH' after '$'.''(cmd_name) )
-      return XY.zero
+      return RealXY.zero
 
-    method read_anchor_args( reader:Reader<<String>> )->XY
+    method read_anchor_args( reader:Reader<<String>> )->RealXY
       block
         if (reader.has_another)
           if (reader.peek.contains('x'))
             local parts = reader.read.split( 'x' )
             if (parts[0].count)
-              if (parts[1].count) return XY(parts[0]->Real64,parts[1]->Real64)
+              if (parts[1].count) return RealXY(parts[0]->Real64,parts[1]->Real64)
             endIf
             escapeBlock
           endIf
@@ -319,12 +319,12 @@ class ImageSize
               others:        escapeWhile
             endWhich
           endWhile
-          return XY(x,y)
+          return RealXY(x,y)
         endIf
       endBlock
 
       error( ''Expected 'WxH' or one or more of [left,top,right,bottom,center] after 'anchor'.'' )
-      return XY.zero
+      return RealXY.zero
 
     method show_usage
       println  "ImageSize v$"(VERSION)
@@ -418,7 +418,7 @@ class Command [abstract]
 
   METHODS
     method anchor->Anchor
-      return Anchor( XY(anchor_x,anchor_y) )
+      return Anchor( RealXY(anchor_x,anchor_y) )
 
     method call( bitmap:Bitmap )->Bitmap [abstract]
       noAction
@@ -431,14 +431,14 @@ class CmdPrintInfo : Command
       return bitmap
 endClass
 
-class CmdResize( new_size:XY, quiet=false:Logical ) : Command
+class CmdResize( new_size:RealXY, quiet=false:Logical ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       local new_size = new_size
       local w = bitmap.width
       local h = bitmap.height
-      if (new_size.x == 0)     new_size = XY( w*(new_size.y/h), new_size.y )
-      elseIf (new_size.y == 0) new_size = XY( new_size.x, h*(new_size.x/w) )
+      if (new_size.x == 0)     new_size = RealXY( w*(new_size.y/h), new_size.y )
+      elseIf (new_size.y == 0) new_size = RealXY( new_size.x, h*(new_size.x/w) )
       w = new_size.x
       h = new_size.y
       if (not quiet) println "  resize [$x$]" (w,h)
@@ -446,7 +446,7 @@ class CmdResize( new_size:XY, quiet=false:Logical ) : Command
       return bitmap
 endClass
 
-class CmdCrop( new_size:XY ) : Command
+class CmdCrop( new_size:RealXY ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       local w = bitmap.width
@@ -458,7 +458,7 @@ class CmdCrop( new_size:XY ) : Command
       return bitmap
 endClass
 
-class CmdAspect( new_size:XY, fit:Logical ) : Command
+class CmdAspect( new_size:RealXY, fit:Logical ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       local w = bitmap.width
@@ -478,7 +478,7 @@ class CmdAspect( new_size:XY, fit:Logical ) : Command
       return bitmap
 endClass
 
-class CmdReshape( new_size:XY, fit=false:Logical, quiet=false:Logical ) : Command
+class CmdReshape( new_size:RealXY, fit=false:Logical, quiet=false:Logical ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       block
@@ -501,8 +501,8 @@ class CmdReshape( new_size:XY, fit=false:Logical, quiet=false:Logical ) : Comman
         local new_size = new_size
         local w = bitmap.width
         local h = bitmap.height
-        if (new_size.x == 0)     new_size = XY( w*(new_size.y/h), new_size.y )
-        elseIf (new_size.y == 0) new_size = XY( new_size.x, h*(new_size.x/w) )
+        if (new_size.x == 0)     new_size = RealXY( w*(new_size.y/h), new_size.y )
+        elseIf (new_size.y == 0) new_size = RealXY( new_size.x, h*(new_size.x/w) )
         w = new_size.x
         h = new_size.y
         bitmap.resize( w, h )
@@ -512,7 +512,7 @@ class CmdReshape( new_size:XY, fit=false:Logical, quiet=false:Logical ) : Comman
 endClass
 
 
-class CmdSetAnchor( xy:XY ) : Command
+class CmdSetAnchor( xy:RealXY ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       println "  anchor $x$" (xy.x.format(".2"),xy.y.format(".2"))
