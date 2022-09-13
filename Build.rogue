@@ -10,9 +10,6 @@
 
 $requireRogue "2.0.9"
 
-#$ LINK_LIBS            = true
-   # Link the following in when compiling this Build.rogue
-
 #$ LIBRARIES(macOS)   = libjpeg
 #$ LIBRARIES(macOS)   = libpng
 #$ LIBRARIES(macOS)   = zlib(flags:-lz)
@@ -35,7 +32,7 @@ augment Build
     LAUNCHER_FOLDER  = "/usr/local/bin"
     ROGUEC_FLAGS     = ""
     CC_FLAGS_UNIX    = ""
-    CC_FLAGS_WINDOWS = ""
+    CC_FLAGS_WINDOWS = "/link LTCG"
 endAugment
 
 routine rogo_default
