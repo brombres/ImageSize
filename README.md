@@ -4,7 +4,7 @@ Command line image sizer and cropper.
 # Version
 About     | Current Release
 ----------|-----------------------
-Version   | 2.0
+Version   | 2.0.1
 Date      | September 13, 2022
 Platforms | Windows, macOS, Linux
 License   | [MIT License](LICENSE)

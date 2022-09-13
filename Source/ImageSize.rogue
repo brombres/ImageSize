@@ -2,7 +2,7 @@
 # ImageSize.rogue
 # April 29, 2021
 #================================================================================
-$define VERSION "2.0"
+$define VERSION "2.0.1"
 $define DATE    "September 13, 2022"
 
 $requireRogue "2.0.11"
@@ -398,7 +398,7 @@ class ImageSize
                |  # A shorter equivalent to the above.
                |  imagesize *.png reshape 320x200 output "Thumbnails/{name}.jpg"
                |
-               |  # Rotate an image 90Âº counter-clockwise and replace the original.
+               |  # Rotate an image 90ÃÂº counter-clockwise and replace the original.
                |  imagesize WrongOrientation.png rotate ccw replace
                |
                |  # Splice together a horizontal strip of images.
@@ -606,4 +606,4 @@ class CmdSaveReplace : Command
         File( filepath ).save( bitmap.to_jpeg_bytes )
       endIf
       return bitmap
-endClass
+endClas
