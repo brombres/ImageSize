@@ -4,20 +4,15 @@ Command line image sizer and cropper.
 # Version
 About     | Current Release
 ----------|-----------------------
-Version   | 1.3
-Date      | September 9, 2022
+Version   | 2.0
+Date      | September 13, 2022
 Platforms | Windows, macOS, Linux
 License   | [MIT License](LICENSE)
 
 # Installation
 
-## Windows and macOS
-
-Download precompiled binaries for Windows and macOS from the [Releases](https://github.com/AbePralle/ImageSize/releases/) page.
-
-# Building From Source
-1. Install [Rogue](https://github.com/AbePralle/Rogue).
-2. Run `rogo` in the root folder of this repo.
+1. Install [Morlock](https://morlock.sh)
+2. `morlock install abepralle/imagesize`
 
 # Usage
 

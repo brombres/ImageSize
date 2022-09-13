@@ -2,10 +2,10 @@
 # ImageSize.rogue
 # April 29, 2021
 #================================================================================
-$define VERSION "1.3"
-$define DATE    "May 7, 2021"
+$define VERSION "2.0"
+$define DATE    "September 13, 2022"
 
-$requireRogue "2.0.9"
+$requireRogue "2.0.11"
 
 uses Console/CommandLineParser
 uses Bitmap
@@ -398,7 +398,7 @@ class ImageSize
                |  # A shorter equivalent to the above.
                |  imagesize *.png reshape 320x200 output "Thumbnails/{name}.jpg"
                |
-               |  # Rotate an image 90º counter-clockwise and replace the original.
+               |  # Rotate an image 90Âº counter-clockwise and replace the original.
                |  imagesize WrongOrientation.png rotate ccw replace
                |
                |  # Splice together a horizontal strip of images.
@@ -607,4 +607,3 @@ class CmdSaveReplace : Command
       endIf
       return bitmap
 endClass
-

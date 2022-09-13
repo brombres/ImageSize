@@ -2,16 +2,24 @@
 # to this folder and type "rogo" at the command line, or "rogo help" for a list
 # of supported commands.
 
+#$ LIBRARIES(Linux) = libpng(install:libpng-dev)
+#$ LIBRARIES(Linux) = libjpeg(install:libjpeg-dev)
+#$ LIBRARIES(macOS) = zlib(flags:-lz)
+#$ LIBRARIES(macOS) = libpng
+#$ LIBRARIES(macOS) = libjpeg
+
 $requireRogue "2.0.9"
 
 #$ LINK_LIBS            = true
    # Link the following in when compiling this Build.rogue
 
-#$ LIBRARIES(macOS) = libjpeg
-#$ LIBRARIES(macOS) = libpng
-#$ LIBRARIES(macOS) = zlib(flags:-lz)
-#$ LIBRARIES(Linux) = libjpeg(install:libjpeg-dev)
-#$ LIBRARIES(Linux) = libpng(install:libpng-dev)
+#$ LIBRARIES(macOS)   = libjpeg
+#$ LIBRARIES(macOS)   = libpng
+#$ LIBRARIES(macOS)   = zlib(flags:-lz)
+#$ LIBRARIES(Linux)   = libjpeg(install:libjpeg-dev)
+#$ LIBRARIES(Linux)   = libpng(install:libpng-dev)
+#$ LIBRARIES(Windows) = abepralle/windowsmedialibs
+#$ CC_LINK(Windows)   = /link /LTCG
 
 uses Bitmap
 uses Bitmap/IO
@@ -304,7 +312,6 @@ routine compile_c
     flags += which{ Build.BUILD_MODE=="release":"-O3" || "-O0" }
     local cc = "cc $ -Wall -fno-strict-aliasing $.c -o $ -lm" (flags,File(c_filepath).esc,exe_file.esc)
     cc .= appending( "$LIBRARY_FLAGS" )
-    cc .= appending( "-I/opt/homebrew/Cellar/jpeg/9e/include" ) # FIXME
     execute cc
   endIf
 endRoutine
