@@ -26,7 +26,7 @@ augment Build
     ROGUEC_FLAGS     = ""
     CC_FLAGS_UNIX    = ""
     CC_FLAGS_WINDOWS = ""
-    CC_LINK_WINDOWS  = "/link LTCG"
+    CC_LINK_WINDOWS  = "/link /LTCG"
 endAugment
 
 routine rogo_default
