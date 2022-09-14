@@ -2,12 +2,6 @@
 # to this folder and type "rogo" at the command line, or "rogo help" for a list
 # of supported commands.
 
-#$ LIBRARIES(Linux) = libpng(install:libpng-dev)
-#$ LIBRARIES(Linux) = libjpeg(install:libjpeg-dev)
-#$ LIBRARIES(macOS) = zlib(flags:-lz)
-#$ LIBRARIES(macOS) = libpng
-#$ LIBRARIES(macOS) = libjpeg
-
 $requireRogue "2.0.9"
 
 #$ LIBRARIES(macOS)   = libjpeg
@@ -16,7 +10,6 @@ $requireRogue "2.0.9"
 #$ LIBRARIES(Linux)   = libjpeg(install:libjpeg-dev)
 #$ LIBRARIES(Linux)   = libpng(install:libpng-dev)
 #$ LIBRARIES(Windows) = abepralle/windowsmedialibs
-#$ CC_LINK(Windows)   = /link /LTCG
 
 uses Bitmap
 uses Bitmap/IO
