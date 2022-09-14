@@ -25,7 +25,8 @@ augment Build
     LAUNCHER_FOLDER  = "/usr/local/bin"
     ROGUEC_FLAGS     = ""
     CC_FLAGS_UNIX    = ""
-    CC_FLAGS_WINDOWS = "/link LTCG"
+    CC_FLAGS_WINDOWS = ""
+    CC_LINK_WINDOWS  = "/link LTCG"
 endAugment
 
 routine rogo_default
@@ -295,6 +296,7 @@ routine compile_c
     local obj_filepath = File( "Build/$-Windows.obj"(Build.PROJECT) ).esc
     local cc = "cl $ /nologo $.c /Fo$ /Fe$" (flags,c_filepath,obj_filepath,exe_filepath)
     cc .= appending( "$LIBRARY_FLAGS" )
+    cc .= appending( Build.CC_LINK_WINDOWS )
     execute cc
   else
     local flags = Build.CC_FLAGS_UNIX
