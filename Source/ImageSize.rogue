@@ -2,8 +2,8 @@
 # ImageSize.rogue
 # April 29, 2021
 #================================================================================
-$define VERSION "2.0.4"
-$define DATE    "September 13, 2022"
+$define VERSION "2.1"
+$define DATE    "February 5, 2023"
 
 $requireRogue "2.0.11"
 

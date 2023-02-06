@@ -4,8 +4,8 @@ Command line image sizer and cropper.
 # Version
 About     | Current Release
 ----------|-----------------------
-Version   | 2.0.4
-Date      | September 13, 2022
+Version   | 2.1
+Date      | February 5, 2023
 Platforms | Windows, macOS, Linux
 License   | [MIT License](LICENSE)
 
@@ -36,6 +36,16 @@ ACTIONS
   aspect-fit  WxH
     Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
     Uses current 'anchor' point or 'center' by default.
+
+  bg [V | VV | RGB | ARGB | RRGGBB | AARRGGBB | transparent]
+    Sets the background fill color for successive expand (crop) operations as 1, 2, 3, 4, 6, or 8
+    hex digits. Alpha is assumed to be FF (opaque) if not specified.
+      bg ff0         - Set the background fill to yellow (0xFFffFF00).
+      bg transparent - Set the background fill to transparent black (0x00000000).
+
+  create WxH
+    Creates a new bitmap of the specified size using the current 'bg' color.
+     bg 800f create 16x16 output HalfTransparentBlue-16x16.png
 
   crop [WxH | Wx | xH]
     Crops/expands image using current 'anchor' point (default: 'center').
