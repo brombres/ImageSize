@@ -49,12 +49,18 @@ class ImageSize
 
       commands.add( CmdPrintInfo() )
 
+      local cur_bg = Color.BLACK
+
       local reader = command//args.to_list<<String>>.reader
       forEach (arg in reader)
         if (arg == "resize")
           commands.add( CmdResize(read_wxh_wx_xh("resize",reader)) )
         elseIf (arg == "bg")
-          commands.add( CmdSetBG(read_color(reader)) )
+          cur_bg = read_color( reader )
+          commands.add( CmdSetBG(cur_bg) )
+        elseIf (arg == "create")
+          local size = read_wxh( "create", reader )
+          input_filepaths.add( "create:$x$:$"(size.x->Int32,size.y->Int32,cur_bg.argb->String(&hex)) )
         elseIf (arg == "crop")
           commands.add( CmdCrop(read_wxh_wx_xh("crop",reader)) )
         elseIf (arg == "aspect-fill")
@@ -126,8 +132,19 @@ class ImageSize
       forEach (filepath in input_filepaths)
         Command.anchor_x = 0.5
         Command.anchor_y = 0.5
-        local bitmap = Bitmap( File(filepath) )
-        if (bitmap.error) error( ''Error loading "$".''(filepath) )
+
+        local bitmap : Bitmap
+        if (filepath.begins_with("create:"))
+          local size = filepath.after_first(':').before_last(':').split('x')
+          local color = filepath.after_last(':')->Int32(&base=16)
+          if (size.count != 2) error( ''Syntax error in "$". 'create:WxH:AARRGGBB' expected.'' ); return
+          bitmap = Bitmap( size[0]->Int32, size[1]->Int32 ).[ clear(color) ]
+          bitmap.filepath = color->String(&hex)
+        else
+          bitmap = Bitmap( File(filepath) )
+          if (bitmap.error) error( ''Error loading "$".''(filepath) )
+        endIf
+
         forEach (cmd in commands)
           bitmap = cmd( bitmap )
         endForEach
@@ -267,9 +284,9 @@ class ImageSize
             return Color( r, g, b )
           case 4  # ARGB     -> 0xAARRGGBB
             local a = param[0].to_number( &base=16 )
-            local r = param[2].to_number( &base=16 )
-            local g = param[3].to_number( &base=16 )
-            local b = param[4].to_number( &base=16 )
+            local r = param[1].to_number( &base=16 )
+            local g = param[2].to_number( &base=16 )
+            local b = param[3].to_number( &base=16 )
             a |= a:<<:4
             r |= r:<<:4
             g |= g:<<:4
@@ -407,6 +424,10 @@ class ImageSize
                |    hex digits. Alpha is assumed to be FF (opaque) if not specified.
                |      bg ff0         - Set the background fill to yellow (0xFFffFF00).
                |      bg transparent - Set the background fill to transparent black (0x00000000).
+               |
+               |  create WxH
+               |    Creates a new bitmap of the specified size using the current 'bg' color.
+               |     bg 800f create 16x16 output HalfTransparentBlue-16x16.png
                |
                |  crop [WxH | Wx | xH]
                |    Crops/expands image using current 'anchor' point (default: 'center').
