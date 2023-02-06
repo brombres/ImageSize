@@ -53,6 +53,8 @@ class ImageSize
       forEach (arg in reader)
         if (arg == "resize")
           commands.add( CmdResize(read_wxh_wx_xh("resize",reader)) )
+        elseIf (arg == "bg")
+          commands.add( CmdSetBG(read_color(reader)) )
         elseIf (arg == "crop")
           commands.add( CmdCrop(read_wxh_wx_xh("crop",reader)) )
         elseIf (arg == "aspect-fill")
@@ -244,6 +246,54 @@ class ImageSize
       Console.error.println "ERROR: " + message
       System.exit 1
 
+    method read_color( reader:Reader<<String>> )->Color
+      if (reader.has_another)
+        local param = reader.read
+        which (param.count)
+          case 1  # V        -> 0xFFVVVVVV
+            local v = param->Int32( &base=16 )
+            v |= v:<<:4
+            return Color( v, v, v )
+          case 2  # Vv       -> 0xFFVvVvVv
+            local v = param->Int32( &base=16 )
+            return Color( v, v, v )
+          case 3  # RGB      -> 0xFFRRGGBB
+            local r = param[0].to_number( &base=16 )
+            local g = param[1].to_number( &base=16 )
+            local b = param[2].to_number( &base=16 )
+            r |= r:<<:4
+            g |= g:<<:4
+            b |= b:<<:4
+            return Color( r, g, b )
+          case 4  # ARGB     -> 0xAARRGGBB
+            local a = param[0].to_number( &base=16 )
+            local r = param[2].to_number( &base=16 )
+            local g = param[3].to_number( &base=16 )
+            local b = param[4].to_number( &base=16 )
+            a |= a:<<:4
+            r |= r:<<:4
+            g |= g:<<:4
+            b |= b:<<:4
+            return Color( r, g, b, a )
+          case 6  # RRGGBB   -> 0xFFRRGGBB
+            local r = param.substring(0,2)->Int32( &base=16 )
+            local g = param.substring(2,2)->Int32( &base=16 )
+            local b = param.substring(4,2)->Int32( &base=16 )
+            return Color( r, g, b )
+          case 8  # AARRGGBB -> 0xAARRGGBB
+            local a = param.substring(0,2)->Int32( &base=16 )
+            local r = param.substring(2,2)->Int32( &base=16 )
+            local g = param.substring(4,2)->Int32( &base=16 )
+            local b = param.substring(6,2)->Int32( &base=16 )
+            return Color( r, g, b, a )
+          case 11  # transparent -> 0x00000000
+            if (param == "transparent") return Color(0)
+        endWhich
+      endIf
+
+      error( ''Expected one of: [V,VV,RGB,ARGB,RRGGBB,AARRGGBB|transparent] (1/2/3/4/6/8 hex digits or 'transparent').'' )
+      return Color(0)
+
     method read_wxh_wx_xh( cmd_name:String, reader:Reader<<String>> )->RealXY
       if (reader.has_another)
         local param = reader.read
@@ -352,6 +402,12 @@ class ImageSize
                |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
                |    Uses current 'anchor' point or 'center' by default.
                |
+               |  bg [V | VV | RGB | ARGB | RRGGBB | AARRGGBB | transparent]
+               |    Sets the background fill color for successive expand (crop) operations as 1, 2, 3, 4, 6, or 8
+               |    hex digits. Alpha is assumed to be FF (opaque) if not specified.
+               |      bg ff0         - Set the background fill to yellow (0xFFffFF00).
+               |      bg transparent - Set the background fill to transparent black (0x00000000).
+               |
                |  crop [WxH | Wx | xH]
                |    Crops/expands image using current 'anchor' point (default: 'center').
                |
@@ -415,6 +471,7 @@ class Command [abstract]
   GLOBAL PROPERTIES
     anchor_x = 0.5
     anchor_y = 0.5
+    bg       = Color.BLACK : Color
 
   METHODS
     method anchor->Anchor
@@ -454,7 +511,7 @@ class CmdCrop( new_size:RealXY ) : Command
       if (new_size.x) w = new_size.x
       if (new_size.y) h = new_size.y
       println "  crop [$x$]" (w,h)
-      bitmap.crop( w, h, anchor, Color.BLACK )
+      bitmap.crop( w, h, anchor, bg )
       return bitmap
 endClass
 
@@ -468,11 +525,11 @@ class CmdAspect( new_size:RealXY, fit:Logical ) : Command
 
       println "  aspect-$ [$x$]" (which{fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
       if (fit)
-        if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
-        else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
+        if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, bg )
+        else                    bitmap.crop( adjusted_width, h,  anchor, bg )
       else
-        if (adjusted_width < w) bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
-        else                    bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
+        if (adjusted_width < w) bitmap.crop( adjusted_width, h,  anchor, bg )
+        else                    bitmap.crop( w, adjusted_height, anchor, bg )
       endIf
 
       return bitmap
@@ -518,6 +575,14 @@ class CmdSetAnchor( xy:RealXY ) : Command
       println "  anchor $x$" (xy.x.format(".2"),xy.y.format(".2"))
       Command.anchor_x = xy.x
       Command.anchor_y = xy.y
+      return bitmap
+endClass
+
+class CmdSetBG( color:Color ) : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      println "  bg $"(color)
+      Command.bg = color
       return bitmap
 endClass
 
