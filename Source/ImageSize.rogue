@@ -395,8 +395,8 @@ class ImageSize
 
     method show_usage
       println  "ImageSize v$"(VERSION)
-      println  "$ by Abe Pralle" (DATE)
-      println  "github.com/AbePralle/ImageSize"
+      println  "$ by Brom Bresenham" (DATE)
+      println  "github.com/brombres/ImageSize"
 
       println @|
                |USAGE

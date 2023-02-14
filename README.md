@@ -12,7 +12,7 @@ License   | [MIT License](LICENSE)
 # Installation
 
 1. Install [Morlock](https://morlock.sh)
-2. `morlock install abepralle/imagesize`
+2. `morlock install brombres/imagesize`
 
 # Usage
 

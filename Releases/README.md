@@ -2,8 +2,8 @@
 - v$(VERSION)
 - $(DATE)
 - [MIT License](LICENSE)
-- By Abe Pralle
-- [github.com/AbePralle/ImageSize](https://github.com/AbePralle/ImageSize)
+- By Brom Bresenham
+- [github.com/brombres/ImageSize](https://github.com/brombres/ImageSize)
 
 # Usage
 
