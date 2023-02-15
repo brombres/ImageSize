@@ -72,6 +72,8 @@ class ImageSize
           commands.add( CmdSetAnchor(read_anchor_args(reader)) )
         elseIf (arg == "flip" or arg == "hflip")
           commands.add CmdFlip( &h )
+        elseIf (arg == "as-alpha")
+          commands.add CmdAsAlpha()
         elseIf (arg == "vflip")
           commands.add CmdFlip( &v )
         elseIf (arg == "rotate")
@@ -449,6 +451,9 @@ class ImageSize
                |      'anchor 0.5x0.5' == 'anchor center'
                |      'anchor 1x1'     == 'anchor bottom right'
                |
+               |  as-alpha
+               |    Converts each pixel to translucent white using the red color component as the alpha value.
+               |
                |  aspect-fill WxH
                |  aspect-fit  WxH
                |    Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
@@ -642,6 +647,18 @@ class CmdSetBG( color:Color ) : Command
     method call( bitmap:Bitmap )->Bitmap
       println "  bg $"(color)
       Command.bg = color
+      return bitmap
+endClass
+
+class CmdAsAlpha : Command
+  METHODS
+    method call( bitmap:Bitmap )->Bitmap
+      println "  as-alpha"
+
+      forEach (color in rewriter=bitmap.pixels.rewriter)
+        rewriter.write( Color(255,255,255,color.red_byte) )
+      endForEach
+
       return bitmap
 endClass
 

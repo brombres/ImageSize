@@ -32,6 +32,9 @@ ACTIONS
       'anchor 0.5x0.5' == 'anchor center'
       'anchor 1x1'     == 'anchor bottom right'
 
+  as-alpha
+    Converts each pixel to translucent white using the red color component as the alpha value.
+
   aspect-fill WxH
   aspect-fit  WxH
     Crops to fill or fit an aspect ratio. 'aspect-fill 1024x768' equivalent to 'aspect-fill 4x3'.
