@@ -29,9 +29,8 @@ class ImageSize
     commands        = Command[]
     output_command  : Command
 
+    combine_op : String
     is_replace = false
-    is_splice  = false
-    is_split   = false
     grid_size  : RealXY
 
   METHODS
@@ -92,28 +91,27 @@ class ImageSize
           output_command = CmdSaveReplace()
           is_replace = true
         elseIf (arg == "splice")
-          is_splice = true
+          combine_op = "splice"
           grid_size = read_splice_args( reader )
           if (grid_size.is_zero) error( "Grid size cannot be (0,0)." )
-          if (is_split) error( "'splice' cannot be used with 'split'." )
         elseIf (arg == "split")
-          is_split  = true
+          combine_op = "split"
           grid_size = read_wxh( "split", reader )
           if (grid_size.x < 1 or grid_size.y < 1) error( "'split' dimensions must be greater than zero." )
-          if (is_splice) error( "'split' cannot be used with 'splice'." )
+        elseIf (arg == "stack")
+          combine_op = "stack"
         else
           input_filepaths.add( arg )
         endIf
       endForEach
 
       if (is_replace)
-        if (is_splice) error( "'replace' cannot be used with 'splice'." )
-        if (is_split)  error( "'replace' cannot be used with 'split'." )
+        if (combine_op) error( "'replace' cannot be used with '$'."(combine_op) )
       endIf
 
       if (not output_command)
-        if  (commands.count > 1 or is_splice or is_split)
-          if (is_split)
+        if  (commands.count > 1 or combine_op)
+          if (combine_op and combine_op == "split")
             local total = grid_size.x->Int32 * grid_size.y->Int32
             local format = "0"
             forEach (pow in 1..6)
@@ -149,20 +147,39 @@ class ImageSize
           bitmap = cmd( bitmap )
         endForEach
 
-        if (is_split)
-          CmdSave.sequence_number = initial_sequence_number
-          split( bitmap )
-        elseIf (is_splice)
-          bitmaps.add( bitmap )
+        if (combine_op)
+          which (combine_op)
+            case "split"
+              CmdSave.sequence_number = initial_sequence_number
+              split( bitmap )
+            others
+              bitmaps.add( bitmap )
+          endWhich
         else
           if (output_command) output_command( bitmap )
         endIf
       endForEach
 
-      if (is_splice)
-        local bitmap = splice( bitmaps )
-        output_command( bitmap )
+      if (combine_op)
+        which (combine_op)
+          case "splice"
+            local bitmap = splice( bitmaps )
+            output_command( bitmap )
+          case "stack"
+            local bitmap = stack( bitmaps )
+            output_command( bitmap )
+        endWhich
       endIf
+
+    method set_combine_op( op:String )
+      if (@combine_op)
+        if (op == @combine_op)
+          error "'$' cannot be used multiple times."(op)
+        else
+          error "'$' cannot be used with '$'."(op,@combine_op)
+        endIf
+      endIf
+      @combine_op = op
 
     method splice( bitmaps:Bitmap[] )->Bitmap
       if (grid_size.y == 1)
@@ -258,6 +275,24 @@ class ImageSize
         remaining_h -= h
         --remaining_rows
       endForEach
+
+    method stack( bitmaps:Bitmap[] )->Bitmap
+      println "stack"
+
+      local max_width = 0
+      max_width .= or_larger( (forEach in bitmaps).width )
+      local max_height = 0
+      max_height .= or_larger( (forEach in bitmaps).height )
+      local cmd = CmdReshape( RealXY(max_width,max_height), &fit, &quiet )
+      forEach (bitmap at i in bitmaps)
+        bitmaps[i] = cmd( bitmap )
+      endForEach
+
+      local result = Bitmap( max_width, max_height ).[ filepath="ImageStack.png" ]
+      forEach (bitmap in bitmaps)
+        bitmap.blit( result, 0, 0, BitmapBlitFn.ALPHA )
+      endForEach
+      return result
 
     method error( message:String )
       Console.error.println "ERROR: " + message
@@ -464,6 +499,9 @@ class ImageSize
                |  split WxH
                |    Splits apart each image into "WxH" individual images. "W" and "H" are column and row counts, not
                |    pixel sizes.
+               |
+               |  stack
+               |    Combines all images by overlaying them from first/bottom to last/top using alpha blending.
                |
                |EXAMPLES
                |  # Print the image size of every JPG.

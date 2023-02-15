@@ -83,6 +83,9 @@ ACTIONS
     Splits apart each image into "WxH" individual images. "W" and "H" are column and row counts, not
     pixel sizes.
 
+  stack
+    Combines all images by overlaying them from first/bottom to last/top using alpha blending.
+
 EXAMPLES
   # Print the image size of every JPG.
   imagesize *.jpg
