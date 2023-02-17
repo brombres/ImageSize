@@ -698,7 +698,7 @@ endClass
 class CmdSwap( a:Int32, b:Int32 ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
-      println "  swap $$"("bgra"[a],"bgra"[b])
+      println "  swap $$"("bgra01"[a],"bgra01"[b])
 
       if (b < 4)
         local a_shift = this.a * 8
