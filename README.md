@@ -89,8 +89,9 @@ ACTIONS
   stack
     Combines all images by overlaying them from first/bottom to last/top using alpha blending.
 
-  swap [a|r|g|b][a|r|g|b]
-    Swaps the color components for the specified pair. E.g. 'swap rb' swaps red and blue.
+  swap [a|r|g|b|0|1][a|r|g|b|0|1]
+    Swaps the color components for the specified pair. E.g. 'swap rb' swaps red and blue and
+    'swap g0' replaces green with all zeros ('swap g1' replaces with all 1's AKA 0xFF).
 
 EXAMPLES
   # Print the image size of every JPG.

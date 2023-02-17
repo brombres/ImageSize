@@ -309,18 +309,24 @@ class ImageSize
       #   g -> 1
       #   r -> 2
       #   a -> 3
+      #   0 -> 4
+      #   1 -> 5
       if (reader.has_another)
         local param = reader.read
         if (param.count == 2)
-          if local a_index = "bgra".locate( param[0] )
-            if local b_index = "bgra".locate( param[1] )
+          if local a_index = "bgra01".locate( param[0] )
+            if local b_index = "bgra01".locate( param[1] )
+              if (a_index >= 4 and b_index >= 4)
+                error( ''At least one channel [a|r|g|b] should be specified.'' )
+              endIf
+              if (a_index >= 4 and b_index < 4) swapValues( a_index, b_index )
               return (a_index,b_index)
             endIf
           endIf
         endIf
       endIf
 
-      error( ''Expected a pair of [a|r|g|b] (e.g. 'swap rb').'' )
+      error( ''Expected a pair of [a|r|g|b|0|1] (e.g. 'swap rb' or 'swap g0').'' )
       return (0,0)
 
     method read_color( reader:Reader<<String>> )->Color
@@ -531,8 +537,9 @@ class ImageSize
                |  stack
                |    Combines all images by overlaying them from first/bottom to last/top using alpha blending.
                |
-               |  swap [a|r|g|b][a|r|g|b]
-               |    Swaps the color components for the specified pair. E.g. 'swap rb' swaps red and blue.
+               |  swap [a|r|g|b|0|1][a|r|g|b|0|1]
+               |    Swaps the color components for the specified pair. E.g. 'swap rb' swaps red and blue and
+               |    'swap g0' replaces green with all zeros ('swap g1' replaces with all 1's AKA 0xFF).
                |
                |EXAMPLES
                |  # Print the image size of every JPG.
@@ -693,15 +700,26 @@ class CmdSwap( a:Int32, b:Int32 ) : Command
     method call( bitmap:Bitmap )->Bitmap
       println "  swap $$"("bgra"[a],"bgra"[b])
 
-      local a_shift = this.a * 8
-      local b_shift = this.b * 8
-      forEach (color in rewriter=bitmap.pixels.rewriter)
-        local a = (color.argb :>>>: a_shift) & 0xFF
-        local b = (color.argb :>>>: b_shift) & 0xFF
-        local argb = color.argb & !(0xFF:<<:a_shift) & !(0xFF:<<:b_shift)
-        argb |= (a :<<: b_shift) | (b :<<: a_shift)
-        rewriter.write( Color(argb) )
-      endForEach
+      if (b < 4)
+        local a_shift = this.a * 8
+        local b_shift = this.b * 8
+        forEach (color in rewriter=bitmap.pixels.rewriter)
+          local a = (color.argb :>>>: a_shift) & 0xFF
+          local b = (color.argb :>>>: b_shift) & 0xFF
+          local argb = color.argb & !(0xFF:<<:a_shift) & !(0xFF:<<:b_shift)
+          argb |= (a :<<: b_shift) | (b :<<: a_shift)
+          rewriter.write( Color(argb) )
+        endForEach
+      else
+        # Replace color channel with all 0's or all 1's
+        local a_shift = this.a * 8
+        local b = which{ this.b==4:0 || 255 } :<<: a_shift
+        forEach (color in rewriter=bitmap.pixels.rewriter)
+          local argb = color.argb & !(0xFF:<<:a_shift)
+          argb |= b
+          rewriter.write( Color(argb) )
+        endForEach
+      endIf
 
       return bitmap
 endClass
