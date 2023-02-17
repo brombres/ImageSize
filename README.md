@@ -89,6 +89,9 @@ ACTIONS
   stack
     Combines all images by overlaying them from first/bottom to last/top using alpha blending.
 
+  swap [a|r|g|b][a|r|g|b]
+    Swaps the color components for the specified pair. E.g. 'swap rb' swaps red and blue.
+
 EXAMPLES
   # Print the image size of every JPG.
   imagesize *.jpg
