@@ -8,8 +8,8 @@ $define DATE    "February 17, 2023"
 $requireRogue "2.0.11"
 
 uses Console/CommandLineParser
-uses Bitmap
-uses Bitmap/IO
+uses Graphics
+uses Graphics/BitmapIO
 uses Geometry
 
 try
