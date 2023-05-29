@@ -28,7 +28,7 @@ augment Build
     PROJECT          = "ImageSize"
     LAUNCHER_NAME    = PROJECT.to_lowercase : String
 
-    BUILD_MODE       = "release"  # set to "debug" or "release"
+    BUILD_MODE       = "debug"  # set to "debug" or "release"
     LAUNCHER_FOLDER  = "/usr/local/bin"
     ROGUEC_FLAGS     = ""
     CC_ARGS_MACOS    = ""

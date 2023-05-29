@@ -145,7 +145,7 @@ class ImageSize
           bitmap.filepath = color->String(&hex)
         else
           bitmap = Bitmap( File(filepath) )
-          if (bitmap.error) error( ''Error loading "$".''(filepath) )
+          if (not bitmap) error( ''Error loading "$".''(filepath) )
         endIf
 
         forEach (cmd in commands)
