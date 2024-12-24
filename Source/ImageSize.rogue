@@ -59,7 +59,7 @@ class ImageSize
           commands.add( CmdSetBG(cur_bg) )
         elseIf (arg == "create")
           local size = read_wxh( "create", reader )
-          input_filepaths.add( "create:$x$:$"(size.x->Int32,size.y->Int32,cur_bg.argb->String(&hex)) )
+          input_filepaths.add( "create:$x$:$"(size.x->Int,size.y->Int,cur_bg.argb->String(&hex)) )
         elseIf (arg == "crop")
           commands.add( CmdCrop(read_wxh_wx_xh("crop",reader)) )
         elseIf (arg == "aspect-fill")
@@ -117,7 +117,7 @@ class ImageSize
       if (not output_command)
         if  (commands.count > 1 or combine_op)
           if (combine_op and combine_op == "split")
-            local total = grid_size.x->Int32 * grid_size.y->Int32
+            local total = grid_size.x->Int * grid_size.y->Int
             local format = "0"
             forEach (pow in 1..6)
               if (total < 10^pow) escapeForEach
@@ -141,7 +141,7 @@ class ImageSize
           local size = filepath.after_first(':').before_last(':').split('x')
           local color = filepath.after_last(':')->Int32(&base=16)
           if (size.count != 2) error( ''Syntax error in "$". 'create:WxH:AARRGGBB' expected.'' ); return
-          bitmap = Bitmap( size[0]->Int32, size[1]->Int32 ).[ clear(color) ]
+          bitmap = Bitmap( size[0]->Int, size[1]->Int ).[ clear(color) ]
           bitmap.filepath = color->String(&hex)
         else
           bitmap = Bitmap( File(filepath) )
@@ -227,8 +227,8 @@ class ImageSize
 
       else
         # Grid
-        local w = grid_size.x->Int32
-        local h = grid_size.y->Int32
+        local w = grid_size.x->Int
+        local h = grid_size.y->Int
         if (w == 0) w = (bitmaps.count + (h-1)) / h
         if (h == 0) h = (bitmaps.count + (w-1)) / w
         println "splice $x$" (w,h)
@@ -265,12 +265,12 @@ class ImageSize
       local y = 0
       forEach (j in 0.0..<grid_h)
         local x = 0
-        local h = Int32(remaining_h / remaining_rows)
+        local h = Int(remaining_h / remaining_rows)
         local remaining_w = bitmap.width
         local remaining_columns = grid_w
         forEach (i in 0.0..<grid_w)
-          local w = Int32(remaining_w / remaining_columns)
-          local bounds = IntBox( x, y, w, h )
+          local w = Int(remaining_w / remaining_columns)
+          local bounds = Box( x, y, w, h )
           output_command( Bitmap(bitmap,bounds).[filepath=bitmap.filepath] )
           x += w
           remaining_w -= w
@@ -303,7 +303,7 @@ class ImageSize
       Console.error.println "ERROR: " + message
       System.exit 1
 
-    method read_channels( reader:Reader<<String>> )->(Int32,Int32)
+    method read_channels( reader:Reader<<String>> )->(Int,Int)
       # Returns a channel index pair. Each value:
       #   b -> 0
       #   g -> 1
@@ -334,11 +334,11 @@ class ImageSize
         local param = reader.read
         which (param.count)
           case 1  # V        -> 0xFFVVVVVV
-            local v = param->Int32( &base=16 )
+            local v = param->Int( &base=16 )
             v |= v:<<:4
             return Color( v, v, v )
           case 2  # Vv       -> 0xFFVvVvVv
-            local v = param->Int32( &base=16 )
+            local v = param->Int( &base=16 )
             return Color( v, v, v )
           case 3  # RGB      -> 0xFFRRGGBB
             local r = param[0].to_number( &base=16 )
@@ -359,15 +359,15 @@ class ImageSize
             b |= b:<<:4
             return Color( r, g, b, a )
           case 6  # RRGGBB   -> 0xFFRRGGBB
-            local r = param.substring(0,2)->Int32( &base=16 )
-            local g = param.substring(2,2)->Int32( &base=16 )
-            local b = param.substring(4,2)->Int32( &base=16 )
+            local r = param.substring(0,2)->Int( &base=16 )
+            local g = param.substring(2,2)->Int( &base=16 )
+            local b = param.substring(4,2)->Int( &base=16 )
             return Color( r, g, b )
           case 8  # AARRGGBB -> 0xAARRGGBB
-            local a = param.substring(0,2)->Int32( &base=16 )
-            local r = param.substring(2,2)->Int32( &base=16 )
-            local g = param.substring(4,2)->Int32( &base=16 )
-            local b = param.substring(6,2)->Int32( &base=16 )
+            local a = param.substring(0,2)->Int( &base=16 )
+            local r = param.substring(2,2)->Int( &base=16 )
+            local g = param.substring(4,2)->Int( &base=16 )
+            local b = param.substring(6,2)->Int( &base=16 )
             return Color( r, g, b, a )
           case 11  # transparent -> 0x00000000
             if (param == "transparent") return Color(0)
@@ -383,10 +383,10 @@ class ImageSize
         if (param.contains('x'))
           local parts = param.split( 'x' )
           if (parts[0].count)
-            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
-            else                return XY(parts[0]->Int32,0)
+            if (parts[1].count) return XY(parts[0]->Int,parts[1]->Int)
+            else                return XY(parts[0]->Int,0)
           else
-            if (parts[1].count) return XY(0,parts[1]->Int32)
+            if (parts[1].count) return XY(0,parts[1]->Int)
           endIf
         endIf
       endIf
@@ -404,10 +404,10 @@ class ImageSize
         elseIf (param.contains('x'))
           local parts = param.split( 'x' )
           if (parts[0].count)
-            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
-            else                return XY(parts[0]->Int32,0)
+            if (parts[1].count) return XY(parts[0]->Int,parts[1]->Int)
+            else                return XY(parts[0]->Int,0)
           else
-            if (parts[1].count) return XY(0,parts[1]->Int32)
+            if (parts[1].count) return XY(0,parts[1]->Int)
           endIf
         endIf
       endIf
@@ -421,7 +421,7 @@ class ImageSize
         if (param.contains('x'))
           local parts = param.split( 'x' )
           if (parts[0].count)
-            if (parts[1].count) return XY(parts[0]->Int32,parts[1]->Int32)
+            if (parts[1].count) return XY(parts[0]->Int,parts[1]->Int)
           endIf
         endIf
       endIf
@@ -617,10 +617,10 @@ class CmdAspect( new_size:XY, fit:Logical ) : Command
     method call( bitmap:Bitmap )->Bitmap
       local w = bitmap.width
       local h = bitmap.height
-      local adjusted_height = (w / new_size.x) * new_size.y : Int32
-      local adjusted_width  = (h / new_size.y) * new_size.x : Int32
+      local adjusted_height = (w / new_size.x) * new_size.y : Int
+      local adjusted_width  = (h / new_size.y) * new_size.x : Int
 
-      println "  aspect-$ [$x$]" (which{fit:"fit"||"fill"},new_size.x->Int32,new_size.y->Int32)
+      println "  aspect-$ [$x$]" (which{fit:"fit"||"fill"},new_size.x->Int,new_size.y->Int)
       if (fit)
         if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, bg )
         else                    bitmap.crop( adjusted_width, h,  anchor, bg )
@@ -638,10 +638,10 @@ class CmdReshape( new_size:XY, fit=false:Logical, quiet=false:Logical ) : Comman
       block
         local w = bitmap.width
         local h = bitmap.height
-        local adjusted_height = (w / new_size.x) * new_size.y : Int32
-        local adjusted_width  = (h / new_size.y) * new_size.x : Int32
+        local adjusted_height = (w / new_size.x) * new_size.y : Int
+        local adjusted_width  = (h / new_size.y) * new_size.x : Int
 
-        if (not quiet) println "  reshape [$x$]" (new_size.x->Int32,new_size.y->Int32)
+        if (not quiet) println "  reshape [$x$]" (new_size.x->Int,new_size.y->Int)
         if (fit)
           if (adjusted_width < w) bitmap.crop( w, adjusted_height, anchor, Color.BLACK )
           else                    bitmap.crop( adjusted_width, h,  anchor, Color.BLACK )
@@ -695,7 +695,7 @@ class CmdAsAlpha : Command
       return bitmap
 endClass
 
-class CmdSwap( a:Int32, b:Int32 ) : Command
+class CmdSwap( a:Int, b:Int ) : Command
   METHODS
     method call( bitmap:Bitmap )->Bitmap
       println "  swap $$"("bgra01"[a],"bgra01"[b])
@@ -761,7 +761,7 @@ class CmdSave : Command
     method init( pattern )
       seq = pattern.extract_string( "*{$(I)}*" )
       if (seq)
-        sequence_number = seq->Int32
+        sequence_number = seq->Int
         seq_format = "0"+(seq.count)
         seq = "{$}" (seq)
       endIf
